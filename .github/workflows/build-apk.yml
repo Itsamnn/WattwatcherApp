@@ -34,17 +34,16 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-gradle-
           
-    - name: � Setup Grdadle
+    - name: 🔧 Setup Gradle
       uses: gradle/gradle-build-action@v2
-      
-    - name: � Makle gradlew executable
-      run: chmod +x gradlew
-      
+      with:
+        gradle-version: 8.2
+        
     - name: 🔨 Build Debug APK
-      run: ./gradlew assembleDebug --no-daemon
+      run: gradle assembleDebug --no-daemon
       
     - name: 🔨 Build Release APK
-      run: ./gradlew assembleRelease --no-daemon
+      run: gradle assembleRelease --no-daemon
       
     - name: 📱 Upload Debug APK
       uses: actions/upload-artifact@v4
@@ -63,4 +62,4 @@ jobs:
         echo "🎉 Build completed successfully!"
         echo "📱 Debug APK: $(ls -lh app/build/outputs/apk/debug/app-debug.apk)"
         echo "📱 Release APK: $(ls -lh app/build/outputs/apk/release/app-release-unsigned.apk)"
-        echo "🚀 Download APKs from the Artifacts section above!"
+        echo "� Download PAPKs from the Artifacts section above!"
