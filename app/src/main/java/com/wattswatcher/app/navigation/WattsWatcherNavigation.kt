@@ -1,11 +1,13 @@
 package com.wattswatcher.app.navigation
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -90,9 +92,9 @@ fun WattsWatcherNavigation() {
 
 @Composable
 fun PlaceholderScreen(title: String) {
-    androidx.compose.foundation.layout.Box(
-        modifier = androidx.compose.foundation.layout.fillMaxSize(),
-        contentAlignment = androidx.compose.ui.Alignment.Center
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
         Text(
             text = "$title - Coming Soon!",
