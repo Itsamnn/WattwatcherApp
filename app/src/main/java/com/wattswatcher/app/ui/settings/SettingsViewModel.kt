@@ -33,7 +33,17 @@ class SettingsViewModel @Inject constructor(
                 userPreferences.language,
                 userPreferences.energySavingMode,
                 userPreferences.biometricAuth
-            ) { themeMode, notifications, anomaly, daily, autoRefresh, interval, currency, language, energySaving, biometric ->
+            ) { values: Array<Any?> ->
+                val themeMode = values[0] as String
+                val notifications = values[1] as Boolean
+                val anomaly = values[2] as Boolean
+                val daily = values[3] as Boolean
+                val autoRefresh = values[4] as Boolean
+                val interval = values[5] as Int
+                val currency = values[6] as String
+                val language = values[7] as String
+                val energySaving = values[8] as Boolean
+                val biometric = values[9] as Boolean
                 SettingsState(
                     themeMode = themeMode,
                     notificationsEnabled = notifications,
