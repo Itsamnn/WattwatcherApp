@@ -34,14 +34,17 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-gradle-
           
-    - name: 🔑 Make gradlew executable
+    - name: � Setup Grdadle
+      uses: gradle/gradle-build-action@v2
+      
+    - name: � Makle gradlew executable
       run: chmod +x gradlew
       
     - name: 🔨 Build Debug APK
-      run: ./gradlew assembleDebug
+      run: ./gradlew assembleDebug --no-daemon
       
     - name: 🔨 Build Release APK
-      run: ./gradlew assembleRelease
+      run: ./gradlew assembleRelease --no-daemon
       
     - name: 📱 Upload Debug APK
       uses: actions/upload-artifact@v4

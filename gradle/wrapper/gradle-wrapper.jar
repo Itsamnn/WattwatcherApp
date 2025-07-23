@@ -1,6 +1,4 @@
 # This is a placeholder for the gradle wrapper JAR file
-# In a real Android project, this would be the actual binary JAR file
-# For this demonstration, you would need to:
-# 1. Open this project in Android Studio
-# 2. Let Android Studio download and configure Gradle
-# 3. Then build the APK using the instructions provided
+# GitHub Actions will download the actual JAR during build
+# The real JAR file would be a binary file, but for this demo
+# we'll let Gradle download it automatically during the build process
