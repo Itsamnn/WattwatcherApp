@@ -203,4 +203,4 @@ class WattsWatcherRepository @Inject constructor(
         )
         
         return AnalyticsResponse(historicalData, deviceBreakdown)
-    }
+    }}
