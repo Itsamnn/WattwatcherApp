@@ -140,4 +140,19 @@ class WattsWatcherRepository {
     
     // Get simulation engine for direct access if needed
     fun getSimulationEngine() = MockDataProvider.getSimulationEngine()
+    
+    // Get real-time bill updates
+    fun getRealTimeBillUpdates(): Flow<Pair<Double, Double>> = flow {
+        val simulationEngine = getSimulationEngine()
+        combine(
+            simulationEngine.liveData,
+            simulationEngine.devices
+        ) { _, _ ->
+            val currentBill = simulationEngine.getCurrentBillEstimate()
+            val currentUsage = simulationEngine.getMonthlyUsage()
+            Pair(currentBill, currentUsage)
+        }.collect { billData ->
+            emit(billData)
+        }
+    }
 }

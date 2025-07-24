@@ -1,24 +1,25 @@
 package com.wattswatcher.app.ui.billing
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import com.wattswatcher.app.utils.BillDownloadHelper
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.ui.platform.LocalContext
 import com.wattswatcher.app.WattsWatcherApplication
-// Using fully qualified names to avoid conflicts
 import com.wattswatcher.app.data.model.Payment
 import com.wattswatcher.app.data.model.Tariff
 import com.wattswatcher.app.ui.components.PaymentMethodCard
@@ -31,379 +32,387 @@ fun BillingScreen() {
         BillingViewModel(app.repository)
     }
     val state by viewModel.state.collectAsState()
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
     
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Header
-        Text(
-            text = "Billing & Payments",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-        
-        if (state.isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        } else {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Current Bill Summary
-                item {
-                    CurrentBillCard(
-                        billSummary = state.billingData?.currentBill,
-                        onPayNowClick = { 
-                            state.billingData?.currentBill?.amount?.let { amount ->
-                                viewModel.initiatePayment(amount, "UPI")
-                            }
-                        }
-                    )
-                }
-                
-                // Tariff Structure
-                item {
-                    TariffStructureCard(
-                        tariffs = state.billingData?.tariffStructure?.map { tariffSlab ->
-                            com.wattswatcher.app.data.model.Tariff(
-                                slab = tariffSlab.description,
-                                rate = tariffSlab.rate
-                            )
-                        } ?: emptyList()
-                    )
-                }
-                
-                // Payment History Header
-                item {
-                    Text(
-                        text = "Payment History",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                
-                // Payment History List
-                items(state.billingData?.paymentHistory ?: emptyList()) { paymentRecord ->
-                    PaymentHistoryItem(
-                        payment = com.wattswatcher.app.data.model.Payment(
-                            date = paymentRecord.date,
-                            amount = paymentRecord.amount,
-                            status = paymentRecord.status
-                        )
-                    )
-                }
-            }
-        }
-        
-        // Payment Result
-        state.paymentResult?.let { result ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (result.success) 
-                        MaterialTheme.colorScheme.primaryContainer 
-                    else 
-                        MaterialTheme.colorScheme.errorContainer
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = if (result.success) "Payment Successful!" else "Payment Failed",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = result.message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                    if (result.success && result.transactionId != null) {
-                        Text(
-                            text = "Transaction ID: ${result.transactionId}",
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-                    Button(
-                        onClick = { viewModel.dismissPaymentResult() },
-                        modifier = Modifier.padding(top = 8.dp)
-                    ) {
-                        Text("OK")
-                    }
-                }
-            }
-        }
-        
-        state.error?.let { error ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                )
-            ) {
-                Text(
-                    text = "Error: $error",
-                    modifier = Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.onErrorContainer
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CurrentBillCard(
-    billSummary: com.wattswatcher.app.data.model.BillSummary?,
-    onPayNowClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
+        item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Current Bill",
-                    style = MaterialTheme.typography.titleLarge,
+                    text = "Billing & Payments",
+                    style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold
                 )
                 
-                Text(
-                    text = "Due: ${billSummary?.dueDate ?: "N/A"}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        text = "Amount Due",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "₹${billSummary?.amount?.toInt() ?: 0}",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                // Download Bill Button
+                FilledTonalButton(
+                    onClick = {
+                        val billContent = viewModel.generateBillDownload()
+                        if (billContent.isNotEmpty()) {
+                            // Copy to clipboard as backup
+                            clipboardManager.setText(AnnotatedString(billContent))
+                            // Also save to file and show download notification
+                            BillDownloadHelper.saveBillToFile(context, billContent)
+                        }
+                    },
+                    enabled = !state.isGeneratingBill
+                ) {
+                    if (state.isGeneratingBill) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(Icons.Default.Download, contentDescription = null)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Download Bill")
                 }
-                
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = "Units Consumed",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "${billSummary?.unitsConsumed?.toInt() ?: 0} kWh",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(20.dp))
-            
-            Button(
-                onClick = onPayNowClick,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Payment,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Pay Now")
             }
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun TariffStructureCard(tariffs: List<Tariff>) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
+        
+        // Real-time Current Bill Card
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Current Bill (Live)",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Updates in real-time",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            )
+                        }
+                        
+                        // Live indicator
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(
+                                        Color.Green,
+                                        shape = RoundedCornerShape(50)
+                                    )
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "LIVE",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Green
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Current bill amount (real-time)
+                    Text(
+                        text = "₹${String.format("%.2f", state.currentBillAmount)}",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    
+                    Text(
+                        text = "${String.format("%.2f", state.currentUsage)} kWh consumed",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Pay Now Button
+                    Button(
+                        onClick = {
+                            viewModel.initiatePayment(state.currentBillAmount, "UPI")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = state.currentBillAmount > 0 && !state.isProcessingPayment
+                    ) {
+                        if (state.isProcessingPayment) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Processing...")
+                        } else {
+                            Icon(Icons.Default.Payment, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Pay Now - ₹${String.format("%.2f", state.currentBillAmount)}")
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Historical Bill Summary (from static data)
+        state.billingData?.let { billingData ->
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = "Previous Bill Summary",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Last Month",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                                Text(
+                                    text = "₹${String.format("%.2f", billingData.currentBill.amount)}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = "Status",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                                Text(
+                                    text = billingData.currentBill.status,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = when (billingData.currentBill.status) {
+                                        "Paid" -> Color.Green
+                                        "Pending" -> Color(0xFFFF8C00)
+                                        else -> Color.Red
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Tariff Structure
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "Tariff Structure",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    state.billingData?.tariffStructure?.forEach { tariffSlab ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = tariffSlab.description,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                text = "₹${tariffSlab.rate}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Payment History
+        item {
             Text(
-                text = "Tariff Structure",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 12.dp)
+                text = "Payment History",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
             )
-            
-            tariffs.forEach { tariff ->
+        }
+        
+        items(state.billingData?.paymentHistory ?: emptyList()) { paymentRecord ->
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = tariff.slab,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = "₹${tariff.rate}/unit",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Column {
+                        Text(
+                            text = paymentRecord.period,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = paymentRecord.date,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
+                    
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = "₹${String.format("%.2f", paymentRecord.amount)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = paymentRecord.status,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = when (paymentRecord.status) {
+                                "Paid" -> Color.Green
+                                "Pending" -> Color(0xFFFF8C00)
+                                else -> Color.Red
+                            }
+                        )
+                    }
                 }
-                if (tariff != tariffs.last()) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+            }
+        }
+        
+        // Payment Result
+        state.paymentResult?.let { result ->
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (result.success) 
+                            MaterialTheme.colorScheme.primaryContainer 
+                        else 
+                            MaterialTheme.colorScheme.errorContainer
                     )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (result.success) Icons.Default.CheckCircle else Icons.Default.Error,
+                                contentDescription = null,
+                                tint = if (result.success) Color.Green else Color.Red
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (result.success) "Payment Successful!" else "Payment Failed",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = result.message,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        
+                        if (result.success && result.transactionId != null) {
+                            Text(
+                                text = "Transaction ID: ${result.transactionId}",
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                        
+                        Button(
+                            onClick = { viewModel.dismissPaymentResult() },
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            Text("OK")
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Error handling
+        state.error?.let { error ->
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Error,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = error,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(
+                            onClick = { viewModel.dismissError() }
+                        ) {
+                            Text("Dismiss")
+                        }
+                    }
                 }
             }
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun PaymentHistoryItem(payment: Payment) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = payment.date,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = "₹${payment.amount}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            
-            Surface(
-                color = if (payment.status == "Paid") Color.Green.copy(alpha = 0.1f) else Color.Red.copy(alpha = 0.1f),
-                shape = MaterialTheme.shapes.small
-            ) {
-                Text(
-                    text = payment.status,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (payment.status == "Paid") Color.Green else Color.Red,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun PaymentModal(
-    amount: String,
-    selectedMethod: String,
-    isProcessing: Boolean,
-    onAmountChange: (String) -> Unit,
-    onMethodSelect: (String) -> Unit,
-    onPayClick: (String, String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val paymentMethods = listOf("UPI", "Credit Card", "Debit Card", "Net Banking")
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "Make Payment",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = onAmountChange,
-                    label = { Text("Amount (₹)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Text(
-                    text = "Payment Method",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                
-                paymentMethods.forEach { method ->
-                    PaymentMethodCard(
-                        method = method,
-                        isSelected = method == selectedMethod,
-                        onSelect = { onMethodSelect(method) }
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onPayClick(amount, selectedMethod) },
-                enabled = !isProcessing && amount.isNotBlank()
-            ) {
-                if (isProcessing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text("Pay Securely")
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
 }

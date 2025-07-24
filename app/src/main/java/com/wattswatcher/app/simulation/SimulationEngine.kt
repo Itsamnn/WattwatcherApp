@@ -35,7 +35,7 @@ class SimulationEngine {
     
     // Simulation parameters
     private var baseLoad = 200.0 // Base household load in watts
-    private var simulationSpeed = 1.0 // 1.0 = real time, 2.0 = 2x speed
+    private var simulationSpeed = 10.0 // 10x speed for demo - bills update faster
     private var monthlyBudget = 1500.0 // User's monthly budget
     private var currentMonthUsage = 0.0 // kWh consumed this month
     private var electricityRate = 4.5 // Rate per kWh
