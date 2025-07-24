@@ -2,77 +2,117 @@ package com.wattswatcher.app.ui.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wattswatcher.app.data.api.LiveData
+import com.wattswatcher.app.data.model.BillSummary
+import com.wattswatcher.app.data.model.Device
 import com.wattswatcher.app.data.repository.WattsWatcherRepository
-import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class DashboardViewModel @Inject constructor(
-    private val repository: WattsWatcherRepository,
-    private val userPreferences: com.wattswatcher.app.data.preferences.UserPreferences
+data class DashboardState(
+    val isLoading: Boolean = false,
+    val liveData: LiveData? = null,
+    val billSummary: BillSummary? = null,
+    val activeDevices: List<Device> = emptyList(),
+    val monthlyUsage: Double = 0.0,
+    val estimatedBill: Double = 0.0,
+    val anomalyDetected: Boolean = false,
+    val anomalies: List<String> = emptyList(),
+    val error: String? = null
+)
+
+class DashboardViewModel(
+    private val repository: WattsWatcherRepository
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(DashboardState())
     val state: StateFlow<DashboardState> = _state.asStateFlow()
     
     init {
-        startLiveDataUpdates()
+        loadDashboardData()
+        startLiveDataStream()
     }
     
-    private fun startLiveDataUpdates() {
+    private fun loadDashboardData() {
         viewModelScope.launch {
-            userPreferences.autoRefresh.combine(userPreferences.refreshInterval) { autoRefresh, interval ->
-                autoRefresh to interval
-            }.collect { (autoRefresh, interval) ->
-                if (autoRefresh) {
-                    while (true) {
-                        fetchDashboardData()
-                        delay(interval * 1000L) // Convert seconds to milliseconds
-                    }
-                }
-            }
-        }
-    }
-    
-    private fun fetchDashboardData() {
-        viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true)
+            _state.value = _state.value.copy(isLoading = true, error = null)
             
-            repository.getDashboardData()
-                .catch { e ->
-                    _state.value = _state.value.copy(
-                        isLoading = false,
-                        error = e.message
-                    )
-                }
-                .collect { result ->
+            try {
+                repository.getDashboardData().collect { result ->
                     result.fold(
-                        onSuccess = { dashboardResponse ->
+                        onSuccess = { dashboardData ->
                             _state.value = _state.value.copy(
                                 isLoading = false,
-                                liveData = dashboardResponse.liveData,
-                                billSummary = dashboardResponse.billSummary,
-                                activeDevices = dashboardResponse.activeDevices,
-                                monthlyUsage = dashboardResponse.billSummary.unitsConsumed,
-                                estimatedBill = dashboardResponse.billSummary.amount,
+                                billSummary = dashboardData.billSummary,
+                                monthlyUsage = dashboardData.billSummary.unitsConsumed,
+                                estimatedBill = dashboardData.billSummary.amount,
+                                activeDevices = dashboardData.activeDevices,
+                                anomalies = dashboardData.anomalies,
+                                anomalyDetected = dashboardData.anomalies.isNotEmpty(),
                                 error = null
                             )
                         },
-                        onFailure = { error ->
+                        onFailure = { exception ->
                             _state.value = _state.value.copy(
                                 isLoading = false,
-                                error = error.message
+                                error = exception.message ?: "Unknown error occurred"
                             )
                         }
                     )
                 }
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    error = e.message ?: "Failed to load dashboard data"
+                )
+            }
         }
     }
     
+    private fun startLiveDataStream() {
+        viewModelScope.launch {
+            try {
+                // Combine live data stream with device updates
+                combine(
+                    repository.getLiveDataStream(),
+                    repository.getDevices()
+                ) { liveData, devicesResult ->
+                    val devices = devicesResult.getOrNull() ?: emptyList()
+                    val activeDevices = devices.filter { it.isOn }
+                    
+                    _state.value = _state.value.copy(
+                        liveData = liveData,
+                        activeDevices = activeDevices
+                    )
+                }.collect { }
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    error = e.message ?: "Failed to start live data stream"
+                )
+            }
+        }
+    }
+    
+    fun refresh() {
+        loadDashboardData()
+    }
+    
     fun refreshData() {
-        fetchDashboardData()
+        loadDashboardData()
+    }
+    
+    fun dismissError() {
+        _state.value = _state.value.copy(error = null)
+    }
+    
+    fun dismissAnomaly(anomaly: String) {
+        val updatedAnomalies = _state.value.anomalies.filter { it != anomaly }
+        _state.value = _state.value.copy(
+            anomalies = updatedAnomalies,
+            anomalyDetected = updatedAnomalies.isNotEmpty()
+        )
     }
 }

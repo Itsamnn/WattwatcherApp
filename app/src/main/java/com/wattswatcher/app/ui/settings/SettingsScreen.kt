@@ -12,16 +12,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalContext
+import com.wattswatcher.app.WattsWatcherApplication
 import com.wattswatcher.app.ui.components.SettingsSection
 import com.wattswatcher.app.ui.components.SettingsItem
 import com.wattswatcher.app.ui.components.ThemeSelectionDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(
-    viewModel: SettingsViewModel = hiltViewModel()
-) {
+fun SettingsScreen() {
+    val app = LocalContext.current.applicationContext as WattsWatcherApplication
+    val viewModel: SettingsViewModel = viewModel {
+        SettingsViewModel(app.userPreferences)
+    }
     val state by viewModel.state.collectAsState()
     var showThemeDialog by remember { mutableStateOf(false) }
     var showCurrencyDialog by remember { mutableStateOf(false) }

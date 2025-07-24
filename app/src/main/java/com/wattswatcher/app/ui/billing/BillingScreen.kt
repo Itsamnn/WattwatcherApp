@@ -7,6 +7,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -14,16 +15,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalContext
+import com.wattswatcher.app.WattsWatcherApplication
+// Using fully qualified names to avoid conflicts
 import com.wattswatcher.app.data.model.Payment
 import com.wattswatcher.app.data.model.Tariff
 import com.wattswatcher.app.ui.components.PaymentMethodCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BillingScreen(
-    viewModel: BillingViewModel = hiltViewModel()
-) {
+fun BillingScreen() {
+    val app = LocalContext.current.applicationContext as WattsWatcherApplication
+    val viewModel: BillingViewModel = viewModel {
+        BillingViewModel(app.repository)
+    }
     val state by viewModel.state.collectAsState()
     
     Column(
@@ -53,17 +59,25 @@ fun BillingScreen(
                 // Current Bill Summary
                 item {
                     CurrentBillCard(
-                        billSummary = state.billSummary,
+                        billSummary = state.billingData?.currentBill,
                         onPayNowClick = { 
-                            viewModel.updatePaymentAmount(state.billSummary?.amount?.toString() ?: "")
-                            viewModel.showPaymentModal(true) 
+                            state.billingData?.currentBill?.amount?.let { amount ->
+                                viewModel.initiatePayment(amount, "UPI")
+                            }
                         }
                     )
                 }
                 
                 // Tariff Structure
                 item {
-                    TariffStructureCard(tariffs = state.tariffStructure)
+                    TariffStructureCard(
+                        tariffs = state.billingData?.tariffStructure?.map { tariffSlab ->
+                            com.wattswatcher.app.data.model.Tariff(
+                                slab = tariffSlab.description,
+                                rate = tariffSlab.rate
+                            )
+                        } ?: emptyList()
+                    )
                 }
                 
                 // Payment History Header
@@ -76,25 +90,59 @@ fun BillingScreen(
                 }
                 
                 // Payment History List
-                items(state.paymentHistory) { payment ->
-                    PaymentHistoryItem(payment = payment)
+                items(state.billingData?.paymentHistory ?: emptyList()) { paymentRecord ->
+                    PaymentHistoryItem(
+                        payment = com.wattswatcher.app.data.model.Payment(
+                            date = paymentRecord.date,
+                            amount = paymentRecord.amount,
+                            status = paymentRecord.status
+                        )
+                    )
                 }
             }
         }
         
-        // Payment Modal
-        if (state.showPaymentModal) {
-            PaymentModal(
-                amount = state.paymentAmount,
-                selectedMethod = state.selectedPaymentMethod,
-                isProcessing = state.isProcessingPayment,
-                onAmountChange = viewModel::updatePaymentAmount,
-                onMethodSelect = viewModel::selectPaymentMethod,
-                onPayClick = { amount, method ->
-                    viewModel.initiatePayment(amount.toDoubleOrNull() ?: 0.0, method)
-                },
-                onDismiss = { viewModel.showPaymentModal(false) }
-            )
+        // Payment Result
+        state.paymentResult?.let { result ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (result.success) 
+                        MaterialTheme.colorScheme.primaryContainer 
+                    else 
+                        MaterialTheme.colorScheme.errorContainer
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = if (result.success) "Payment Successful!" else "Payment Failed",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = result.message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                    if (result.success && result.transactionId != null) {
+                        Text(
+                            text = "Transaction ID: ${result.transactionId}",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                    Button(
+                        onClick = { viewModel.dismissPaymentResult() },
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) {
+                        Text("OK")
+                    }
+                }
+            }
         }
         
         state.error?.let { error ->

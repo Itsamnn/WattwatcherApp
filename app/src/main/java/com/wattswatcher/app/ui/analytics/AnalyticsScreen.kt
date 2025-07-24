@@ -13,7 +13,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalContext
+import com.wattswatcher.app.WattsWatcherApplication
 import com.wattswatcher.app.data.api.DeviceConsumption
 import com.wattswatcher.app.data.api.HistoricalDataPoint
 import com.wattswatcher.app.ui.components.ConsumptionChart
@@ -22,9 +24,11 @@ import com.wattswatcher.app.ui.components.PeriodFilterChip
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnalyticsScreen(
-    viewModel: AnalyticsViewModel = hiltViewModel()
-) {
+fun AnalyticsScreen() {
+    val app = LocalContext.current.applicationContext as WattsWatcherApplication
+    val viewModel: AnalyticsViewModel = viewModel {
+        AnalyticsViewModel(app.repository)
+    }
     val state by viewModel.state.collectAsState()
     val periods = listOf("day", "week", "month", "year")
     
@@ -84,7 +88,12 @@ fun AnalyticsScreen(
                             )
                             
                             ConsumptionChart(
-                                data = state.historicalData,
+                                data = state.analyticsData?.hourlyData?.map { hourlyUsage ->
+                                    HistoricalDataPoint(
+                                        timestamp = hourlyUsage.hour.toString(),
+                                        consumption = hourlyUsage.usage
+                                    )
+                                } ?: emptyList(),
                                 period = state.selectedPeriod,
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -111,7 +120,13 @@ fun AnalyticsScreen(
                             )
                             
                             DeviceBreakdownChart(
-                                data = state.deviceBreakdown,
+                                data = state.analyticsData?.deviceBreakdown?.map { deviceUsage ->
+                                    DeviceConsumption(
+                                        deviceName = deviceUsage.deviceName,
+                                        consumption = deviceUsage.consumption,
+                                        percentage = deviceUsage.percentage.toFloat()
+                                    )
+                                } ?: emptyList(),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(250.dp)
@@ -123,8 +138,8 @@ fun AnalyticsScreen(
                 // Insights & Recommendations
                 item {
                     InsightsCard(
-                        totalConsumption = state.historicalData.sumOf { it.consumption },
-                        topDevice = state.deviceBreakdown.maxByOrNull { it.consumption }?.deviceName ?: "N/A",
+                        totalConsumption = state.analyticsData?.totalConsumption ?: 0.0,
+                        topDevice = state.analyticsData?.deviceBreakdown?.maxByOrNull { it.consumption }?.deviceName ?: "N/A",
                         period = state.selectedPeriod
                     )
                 }
@@ -138,8 +153,14 @@ fun AnalyticsScreen(
                     )
                 }
                 
-                items(state.deviceBreakdown) { device ->
-                    DeviceConsumptionItem(device = device)
+                items(state.analyticsData?.deviceBreakdown ?: emptyList()) { deviceUsage ->
+                    DeviceConsumptionItem(
+                        device = DeviceConsumption(
+                            deviceName = deviceUsage.deviceName,
+                            consumption = deviceUsage.consumption,
+                            percentage = deviceUsage.percentage.toFloat()
+                        )
+                    )
                 }
             }
         }

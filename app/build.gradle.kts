@@ -1,9 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("dagger.hilt.android.plugin")
     id("kotlinx-serialization")
-    kotlin("kapt")
 }
 
 android {
@@ -69,10 +67,8 @@ dependencies {
     // ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     
-    // Hilt
-    implementation("com.google.dagger:hilt-android:2.48")
-    implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
-    kapt("com.google.dagger:hilt-compiler:2.48")
+    // Manual DI (simplified)
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
     
     // Retrofit & Networking
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
@@ -82,10 +78,7 @@ dependencies {
     // Kotlinx Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
     
-    // Room
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
-    kapt("androidx.room:room-compiler:2.6.1")
+    // Room - Removed for simulation-based approach
     
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
@@ -107,6 +100,3 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
-kapt {
-    correctErrorTypes = true
-}
