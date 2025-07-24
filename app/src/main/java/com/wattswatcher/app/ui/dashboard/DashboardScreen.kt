@@ -17,17 +17,24 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.ui.platform.LocalContext
 import com.wattswatcher.app.WattsWatcherApplication
 import com.wattswatcher.app.data.model.Device
+import com.wattswatcher.app.ui.animations.WattsWatcherAnimations
+import com.wattswatcher.app.ui.theme.WattsWatcherColors
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DashboardScreen() {
+fun DashboardScreen(
+    onNavigateToBilling: () -> Unit = {},
+    onNavigateToDevices: () -> Unit = {},
+    onNavigateToAnalytics: () -> Unit = {}
+) {
     val app = LocalContext.current.applicationContext as WattsWatcherApplication
     val viewModel: DashboardViewModel = viewModel {
         DashboardViewModel(app.repository)
@@ -41,59 +48,74 @@ fun DashboardScreen() {
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        // Header
+        // Welcome Header with Animation
         item {
-            DashboardHeader()
+            WattsWatcherAnimations.StaggeredAnimation(
+                visible = true,
+                index = 0
+            ) {
+                WelcomeHeader()
+            }
         }
         
-        // Live Power Monitor - Main Feature
+        // Live Power Gauge - Hero Section
         item {
-            LivePowerCard(
-                watts = state.liveData?.currentUsage ?: 0.0,
-                voltage = state.liveData?.voltage ?: 0.0,
-                current = (state.liveData?.currentUsage ?: 0.0) / (state.liveData?.voltage ?: 230.0),
-                isLoading = state.isLoading
-            )
+            WattsWatcherAnimations.StaggeredAnimation(
+                visible = true,
+                index = 1
+            ) {
+                LivePowerGaugeCard(
+                    currentUsage = state.liveData?.currentUsage ?: 0.0,
+                    voltage = state.liveData?.voltage ?: 230.0,
+                    isLoading = state.isLoading
+                )
+            }
         }
         
         // Quick Stats Row
         item {
-            QuickStatsRow(
-                monthlyUsage = state.monthlyUsage,
-                estimatedBill = state.estimatedBill,
-                activeDevicesCount = state.activeDevices.size
-            )
+            WattsWatcherAnimations.StaggeredAnimation(
+                visible = true,
+                index = 2
+            ) {
+                QuickStatsRow(
+                    monthlyUsage = state.monthlyUsage,
+                    estimatedBill = state.estimatedBill,
+                    activeDevicesCount = state.activeDevices.size,
+                    onBillingClick = onNavigateToBilling,
+                    onAnalyticsClick = onNavigateToAnalytics
+                )
+            }
         }
         
-        // Anomaly Alert
-        if (state.anomalyDetected) {
+        // Anomaly Alert (if any)
+        if (state.anomalyDetected && state.anomalies.isNotEmpty()) {
             item {
-                AnomalyAlertCard(
-                    watts = state.liveData?.currentUsage ?: 0.0,
-                    voltage = state.liveData?.voltage ?: 0.0
-                )
+                WattsWatcherAnimations.StaggeredAnimation(
+                    visible = true,
+                    index = 3
+                ) {
+                    AnomalyAlertCard(
+                        anomalies = state.anomalies,
+                        onDismiss = { anomaly ->
+                            viewModel.dismissAnomaly(anomaly)
+                        }
+                    )
+                }
             }
         }
         
         // Active Devices Section
         if (state.activeDevices.isNotEmpty()) {
             item {
-                Text(
-                    text = "Active Devices (${state.activeDevices.size})",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-            }
-            
-            item {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(horizontal = 4.dp)
+                WattsWatcherAnimations.StaggeredAnimation(
+                    visible = true,
+                    index = 4
                 ) {
-                    items(state.activeDevices) { device ->
-                        ActiveDeviceCard(device = device)
-                    }
+                    ActiveDevicesSection(
+                        devices = state.activeDevices,
+                        onDevicesClick = onNavigateToDevices
+                    )
                 }
             }
         }
@@ -103,7 +125,7 @@ fun DashboardScreen() {
             item {
                 ErrorCard(
                     error = error,
-                    onRetry = { viewModel.refreshData() }
+                    onDismiss = { viewModel.dismissError() }
                 )
             }
         }
@@ -111,179 +133,128 @@ fun DashboardScreen() {
 }
 
 @Composable
-private fun DashboardHeader() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column {
-            Text(
-                text = "WattsWatcher",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                text = "Live Energy Monitor",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        
-        // Live indicator
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            PulsingDot()
-            Text(
-                text = "LIVE",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = Color.Green
-            )
-        }
+private fun WelcomeHeader() {
+    Column {
+        Text(
+            text = "Hi, Welcome back! 👋",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Text(
+            text = "Monitor and control your energy usage",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+            modifier = Modifier.padding(top = 4.dp)
+        )
     }
 }
 
 @Composable
-private fun PulsingDot() {
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "alpha"
-    )
-    
-    Box(
-        modifier = Modifier
-            .size(8.dp)
-            .clip(CircleShape)
-            .background(Color.Green.copy(alpha = alpha))
-    )
-}
-
-@Composable
-private fun LivePowerCard(
-    watts: Double,
+private fun LivePowerGaugeCard(
+    currentUsage: Double,
     voltage: Double,
-    current: Double,
     isLoading: Boolean
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(280.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
+            containerColor = WattsWatcherColors.cardBackground
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .background(
-                    Brush.verticalGradient(
+                    brush = Brush.radialGradient(
                         colors = listOf(
-                            MaterialTheme.colorScheme.primaryContainer,
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
-                        )
+                            WattsWatcherColors.gradientStart.copy(alpha = 0.1f),
+                            Color.Transparent
+                        ),
+                        radius = 400f
                     )
                 )
-                .padding(24.dp)
         ) {
-            if (isLoading) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                // Live indicator
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 16.dp)
                 ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(60.dp),
-                        strokeWidth = 6.dp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    WattsWatcherAnimations.PulsingIndicator {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(
+                                    WattsWatcherColors.energyGreen,
+                                    CircleShape
+                                )
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Connecting to live data...",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        text = "LIVE",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = WattsWatcherColors.energyGreen
                     )
                 }
-            } else {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    // Main power display
-                    Text(
-                        text = "${watts.toInt()}",
-                        fontSize = 48.sp,
-                        fontWeight = FontWeight.Bold,
+                
+                // Main power reading
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(48.dp),
                         color = MaterialTheme.colorScheme.primary
                     )
-                    Text(
-                        text = "WATTS",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        letterSpacing = 2.sp
-                    )
-                    
-                    Spacer(modifier = Modifier.height(20.dp))
-                    
-                    // Secondary metrics
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        MetricItem(
-                            label = "Voltage",
-                            value = "${voltage.toInt()}V",
-                            icon = Icons.Default.Bolt
-                        )
-                        MetricItem(
-                            label = "Current",
-                            value = "${String.format("%.1f", current)}A",
-                            icon = Icons.Default.FlashOn
+                } else {
+                    WattsWatcherAnimations.AnimatedCounter(
+                        targetValue = currentUsage.toFloat()
+                    ) { animatedValue ->
+                        Text(
+                            text = "${animatedValue.roundToInt()}W",
+                            style = MaterialTheme.typography.displayLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
+                
+                Text(
+                    text = "Current Usage",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+                
+                // Voltage info
+                Row(
+                    modifier = Modifier.padding(top = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.ElectricBolt,
+                        contentDescription = null,
+                        tint = WattsWatcherColors.energyAmber,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "${voltage.roundToInt()}V",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                    )
+                }
             }
         }
-    }
-}
-
-@Composable
-private fun MetricItem(
-    label: String,
-    value: String,
-    icon: ImageVector
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(20.dp)
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onPrimaryContainer
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-        )
     }
 }
 
@@ -291,56 +262,71 @@ private fun MetricItem(
 private fun QuickStatsRow(
     monthlyUsage: Double,
     estimatedBill: Double,
-    activeDevicesCount: Int
+    activeDevicesCount: Int,
+    onBillingClick: () -> Unit,
+    onAnalyticsClick: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // Monthly Usage
         QuickStatCard(
-            title = "Monthly Usage",
-            value = "${monthlyUsage.toInt()} kWh",
-            icon = Icons.Default.ElectricBolt,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            title = "Usage",
+            value = "${String.format("%.1f", monthlyUsage)} kWh",
+            icon = Icons.Default.TrendingUp,
+            color = WattsWatcherColors.energyBlue,
+            onClick = onAnalyticsClick
         )
+        
+        // Estimated Bill
         QuickStatCard(
-            title = "Est. Bill",
-            value = "₹${estimatedBill.toInt()}",
-            icon = Icons.Default.CurrencyRupee,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            title = "Bill",
+            value = "₹${String.format("%.0f", estimatedBill)}",
+            icon = Icons.Default.Receipt,
+            color = WattsWatcherColors.energyAmber,
+            onClick = onBillingClick
         )
+        
+        // Active Devices
         QuickStatCard(
+            modifier = Modifier.weight(1f),
             title = "Active",
             value = "$activeDevicesCount devices",
             icon = Icons.Default.DeviceHub,
-            modifier = Modifier.weight(1f)
+            color = WattsWatcherColors.energyGreen,
+            onClick = {}
         )
     }
 }
 
 @Composable
 private fun QuickStatCard(
+    modifier: Modifier = Modifier,
     title: String,
     value: String,
     icon: ImageVector,
-    modifier: Modifier = Modifier
+    color: Color,
+    onClick: () -> Unit
 ) {
     Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        modifier = modifier
+            .clickable { onClick() },
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = WattsWatcherColors.cardBackground
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(
-                imageVector = icon,
+                icon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = color,
                 modifier = Modifier.size(24.dp)
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -353,7 +339,7 @@ private fun QuickStatCard(
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
         }
     }
@@ -361,12 +347,157 @@ private fun QuickStatCard(
 
 @Composable
 private fun AnomalyAlertCard(
-    watts: Double,
-    voltage: Double
+    anomalies: List<String>,
+    onDismiss: (String) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = WattsWatcherColors.energyAmber.copy(alpha = 0.1f)
+        ),
+        border = BorderStroke(1.dp, WattsWatcherColors.energyAmber.copy(alpha = 0.3f))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = WattsWatcherColors.energyAmber,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Energy Alert",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            anomalies.forEach { anomaly ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = anomaly,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = { onDismiss(anomaly) },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Dismiss",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActiveDevicesSection(
+    devices: List<Device>,
+    onDevicesClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onDevicesClick() },
+        colors = CardDefaults.cardColors(
+            containerColor = WattsWatcherColors.cardBackground
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Active Devices",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Icon(
+                    Icons.Default.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            devices.take(3).forEach { device ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = device.icon,
+                            fontSize = 20.sp
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = device.name,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Text(
+                        text = "${device.wattage.toInt()}W",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = WattsWatcherColors.energyGreen
+                    )
+                }
+            }
+            
+            if (devices.size > 3) {
+                Text(
+                    text = "+${devices.size - 3} more devices",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ErrorCard(
+    error: String,
+    onDismiss: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.errorContainer
         )
@@ -376,99 +507,21 @@ private fun AnomalyAlertCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Default.Warning,
+                Icons.Default.Error,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(32.dp)
+                tint = MaterialTheme.colorScheme.error
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Anomaly Detected!",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onErrorContainer
-                )
-                Text(
-                    text = when {
-                        watts > 3000 -> "High power consumption: ${watts.toInt()}W"
-                        voltage < 200 -> "Low voltage: ${voltage.toInt()}V"
-                        voltage > 240 -> "High voltage: ${voltage.toInt()}V"
-                        else -> "Unusual energy pattern detected"
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ActiveDeviceCard(device: Device) {
-    Card(
-        modifier = Modifier.width(140.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                imageVector = Icons.Default.DeviceHub,
-                contentDescription = null,
-                tint = Color.Green,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = device.name,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2
-            )
-            Text(
-                text = "${device.wattage}W",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold
-            )
-        }
-    }
-}
-
-@Composable
-private fun ErrorCard(
-    error: String,
-    onRetry: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(
-                text = "Error",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onErrorContainer
-            )
+            Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = error,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-                modifier = Modifier.padding(vertical = 8.dp)
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.onErrorContainer
             )
-            TextButton(onClick = onRetry) {
-                Text("Retry")
+            TextButton(
+                onClick = onDismiss
+            ) {
+                Text("Dismiss")
             }
         }
     }

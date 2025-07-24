@@ -16,86 +16,86 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Enhanced Dark Color Scheme with WattsWatcher branding
+// Premium Dark Color Scheme - Industry-ready energy dashboard
 private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryPurple,
-    onPrimary = Color.White,
-    primaryContainer = PrimaryPurpleDark,
-    onPrimaryContainer = Color(0xFFE8D5FF),
+    primary = DarkPrimaryAccent,                    // Neon Green
+    onPrimary = Color.Black,
+    primaryContainer = DarkSecondaryAccent,         // Midnight Blue
+    onPrimaryContainer = DarkMainText,              // White Smoke
     
-    secondary = EnergyGreen,
+    secondary = DarkHighlightColor,                 // Soft Orange
     onSecondary = Color.Black,
-    secondaryContainer = EnergyGreenDarkLegacy,
-    onSecondaryContainer = Color(0xFFE8F5E8),
+    secondaryContainer = DarkCardBackground,        // Charcoal Slate
+    onSecondaryContainer = DarkMainText,
     
-    tertiary = InfoBlue,
+    tertiary = EnergyBlue,
     onTertiary = Color.White,
-    tertiaryContainer = Color(0xFF004A77),
+    tertiaryContainer = Color(0xFF001D36),
     onTertiaryContainer = Color(0xFFD1E4FF),
     
-    error = AlertRed,
+    error = EnergyRed,
     onError = Color.White,
-    errorContainer = AlertRedDark,
-    onErrorContainer = Color(0xFFFFE6E1),
+    errorContainer = Color(0xFF93000A),
+    onErrorContainer = Color(0xFFFFDAD6),
     
-    background = DarkBackground,
-    onBackground = DarkPrimaryText,
+    background = DarkBackground,                    // Gunmetal Dark
+    onBackground = DarkMainText,                    // White Smoke
     
-    surface = DarkSurface,
-    onSurface = DarkPrimaryText,
-    surfaceVariant = DarkSurfaceVariant,
-    onSurfaceVariant = DarkSecondaryText,
+    surface = DarkCardBackground,                   // Charcoal Slate
+    onSurface = DarkMainText,                       // White Smoke
+    surfaceVariant = Color(0xFF2A2A2A),
+    onSurfaceVariant = DarkNeutralText,             // Soft Gray
     
-    outline = DarkDivider,
+    outline = Color(0xFF3A3A3A),
     outlineVariant = Color(0xFF2A2A2A),
     
-    inverseSurface = LightSurface,
-    inverseOnSurface = LightPrimaryText,
-    inversePrimary = PrimaryPurpleDark
+    inverseSurface = LightBackground,
+    inverseOnSurface = LightMainText,
+    inversePrimary = LightPrimaryAccent
 )
 
-// Enhanced Light Color Scheme with WattsWatcher branding
+// Clean Light Color Scheme - Modern energy app
 private val LightColorScheme = lightColorScheme(
-    primary = PrimaryPurple,
+    primary = LightPrimaryAccent,                   // Electric Blue
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFE8D5FF),
-    onPrimaryContainer = PrimaryPurpleDark,
+    primaryContainer = Color(0xFFD1E4FF),
+    onPrimaryContainer = Color(0xFF001D36),
     
-    secondary = EnergyGreen,
+    secondary = LightSecondaryAccent,               // Emerald Green
     onSecondary = Color.White,
     secondaryContainer = Color(0xFFE8F5E8),
-    onSecondaryContainer = EnergyGreenDarkLegacy,
+    onSecondaryContainer = Color(0xFF002204),
     
-    tertiary = InfoBlue,
+    tertiary = LightWarningColor,                   // Bright Amber
     onTertiary = Color.White,
-    tertiaryContainer = Color(0xFFD1E4FF),
-    onTertiaryContainer = Color(0xFF001D36),
+    tertiaryContainer = Color(0xFFFFE0B2),
+    onTertiaryContainer = Color(0xFF2E1500),
     
-    error = AlertRed,
+    error = EnergyRed,
     onError = Color.White,
-    errorContainer = Color(0xFFFFE6E1),
-    onErrorContainer = AlertRedDark,
+    errorContainer = Color(0xFFFFDAD6),
+    onErrorContainer = Color(0xFF410002),
     
-    background = LightBackground,
-    onBackground = LightPrimaryText,
+    background = LightBackground,                   // Soft Pearl White
+    onBackground = LightMainText,                   // Rich Charcoal
     
-    surface = LightSurface,
-    onSurface = LightPrimaryText,
-    surfaceVariant = LightSurfaceVariant,
-    onSurfaceVariant = LightSecondaryText,
+    surface = Color.White,
+    onSurface = LightMainText,                      // Rich Charcoal
+    surfaceVariant = LightCardBackground,           // Light Gray
+    onSurfaceVariant = LightSubText,                // Muted Gray
     
-    outline = LightDivider,
+    outline = Color(0xFFCAC4D0),
     outlineVariant = Color(0xFFE0E0E0),
     
-    inverseSurface = DarkSurface,
-    inverseOnSurface = DarkPrimaryText,
-    inversePrimary = PrimaryPurpleLight
+    inverseSurface = DarkCardBackground,
+    inverseOnSurface = DarkMainText,
+    inversePrimary = DarkPrimaryAccent
 )
 
 @Composable
 fun WattsWatcherTheme(
     themeMode: String = "system",
-    dynamicColor: Boolean = false, // Disabled by default to maintain brand consistency
+    dynamicColor: Boolean = false, // Disabled to maintain brand consistency
     content: @Composable () -> Unit
 ) {
     val darkTheme = when (themeMode) {
@@ -117,8 +117,8 @@ fun WattsWatcherTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            // Use surface color for status bar for better integration
-            window.statusBarColor = colorScheme.surface.toArgb()
+            // Use background color for status bar for seamless integration
+            window.statusBarColor = colorScheme.background.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }
@@ -132,22 +132,25 @@ fun WattsWatcherTheme(
 
 // Theme extension properties for easy access to custom colors
 object WattsWatcherColors {
-    val gaugeGreen @Composable get() = GaugeGreen
-    val gaugeYellow @Composable get() = GaugeYellow
-    val gaugeOrange @Composable get() = GaugeOrange
-    val gaugeRed @Composable get() = GaugeRed
+    val energyGreen @Composable get() = if (isSystemInDarkTheme()) DarkPrimaryAccent else LightSecondaryAccent
+    val energyRed @Composable get() = EnergyRed
+    val energyAmber @Composable get() = if (isSystemInDarkTheme()) DarkHighlightColor else LightWarningColor
+    val energyBlue @Composable get() = if (isSystemInDarkTheme()) DarkSecondaryAccent else LightPrimaryAccent
     
-    val deviceOn @Composable get() = DeviceOnGreen
-    val deviceOff @Composable get() = DeviceOffGray
-    val deviceScheduled @Composable get() = DeviceScheduledBlue
-    val deviceError @Composable get() = DeviceErrorRed
+    val cardBackground @Composable get() = if (isSystemInDarkTheme()) DarkCardBackground else Color.White
+    val surfaceVariant @Composable get() = if (isSystemInDarkTheme()) SurfaceVariantDark else SurfaceVariant
     
-    val billPaid @Composable get() = BillPaidGreen
-    val billPending @Composable get() = BillPendingOrange
-    val billOverdue @Composable get() = BillOverdueRed
+    val deviceOn @Composable get() = if (isSystemInDarkTheme()) DarkPrimaryAccent else LightSecondaryAccent
+    val deviceOff @Composable get() = if (isSystemInDarkTheme()) DarkNeutralText else LightSubText
+    val deviceScheduled @Composable get() = if (isSystemInDarkTheme()) DarkSecondaryAccent else LightPrimaryAccent
+    val deviceError @Composable get() = EnergyRed
     
-    val chartColors @Composable get() = listOf(
-        ChartBlue, ChartTeal, ChartIndigo, ChartDeepPurple,
-        ChartPink, ChartCyan, ChartLime, ChartAmber
-    )
+    val billPaid @Composable get() = BillPaidColor
+    val billPending @Composable get() = BillPendingColor
+    val billOverdue @Composable get() = BillOverdueColor
+    
+    val chartColors @Composable get() = ChartColors
+    
+    val gradientStart @Composable get() = GradientStart
+    val gradientEnd @Composable get() = GradientEnd
 }

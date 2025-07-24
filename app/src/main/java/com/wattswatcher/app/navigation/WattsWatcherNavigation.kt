@@ -1,5 +1,7 @@
 package com.wattswatcher.app.navigation
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -43,14 +45,36 @@ fun WattsWatcherNavigation() {
     
     Scaffold(
         bottomBar = {
-            NavigationBar {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface
+            ) {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
                 
                 items.forEach { screen ->
                     NavigationBarItem(
-                        icon = { Icon(screen.icon, contentDescription = null) },
-                        label = { Text(screen.title) },
+                        icon = { 
+                            Icon(
+                                screen.icon, 
+                                contentDescription = null,
+                                tint = if (currentDestination?.hierarchy?.any { it.route == screen.route } == true) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            ) 
+                        },
+                        label = { 
+                            Text(
+                                screen.title,
+                                color = if (currentDestination?.hierarchy?.any { it.route == screen.route } == true) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            ) 
+                        },
                         selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                         onClick = {
                             navController.navigate(screen.route) {
@@ -60,7 +84,14 @@ fun WattsWatcherNavigation() {
                                 launchSingleTop = true
                                 restoreState = true
                             }
-                        }
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     )
                 }
             }
@@ -69,36 +100,99 @@ fun WattsWatcherNavigation() {
         NavHost(
             navController = navController,
             startDestination = Screen.Dashboard.route,
-            modifier = Modifier.padding(innerPadding)
-        ) {
-            composable(Screen.Dashboard.route) {
-                DashboardScreen()
+            modifier = Modifier.padding(innerPadding),
+            enterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { it },
+                    animationSpec = tween(300)
+                ) + fadeIn(animationSpec = tween(300))
+            },
+            exitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { -it / 3 },
+                    animationSpec = tween(300)
+                ) + fadeOut(animationSpec = tween(200))
+            },
+            popEnterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { -it / 3 },
+                    animationSpec = tween(300)
+                ) + fadeIn(animationSpec = tween(300))
+            },
+            popExitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { it },
+                    animationSpec = tween(300)
+                ) + fadeOut(animationSpec = tween(200))
             }
-            composable(Screen.Devices.route) {
+        ) {
+            composable(
+                Screen.Dashboard.route,
+                enterTransition = {
+                    slideInVertically(
+                        initialOffsetY = { it / 4 },
+                        animationSpec = tween(400)
+                    ) + fadeIn(animationSpec = tween(400))
+                }
+            ) {
+                DashboardScreen(
+                    onNavigateToBilling = {
+                        navController.navigate(Screen.Billing.route)
+                    },
+                    onNavigateToDevices = {
+                        navController.navigate(Screen.Devices.route)
+                    },
+                    onNavigateToAnalytics = {
+                        navController.navigate(Screen.Analytics.route)
+                    }
+                )
+            }
+            
+            composable(
+                Screen.Devices.route,
+                enterTransition = {
+                    slideInVertically(
+                        initialOffsetY = { it },
+                        animationSpec = tween(350)
+                    ) + fadeIn(animationSpec = tween(350))
+                }
+            ) {
                 DeviceControlScreen()
             }
-            composable(Screen.Billing.route) {
+            
+            composable(
+                Screen.Billing.route,
+                enterTransition = {
+                    slideInVertically(
+                        initialOffsetY = { it / 2 },
+                        animationSpec = tween(350)
+                    ) + fadeIn(animationSpec = tween(350)) + scaleIn(
+                        initialScale = 0.9f,
+                        animationSpec = tween(350)
+                    )
+                }
+            ) {
                 BillingScreen()
             }
-            composable(Screen.Analytics.route) {
+            
+            composable(
+                Screen.Analytics.route,
+                enterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { it },
+                        animationSpec = tween(350)
+                    ) + fadeIn(animationSpec = tween(350)) + scaleIn(
+                        initialScale = 0.95f,
+                        animationSpec = tween(350)
+                    )
+                }
+            ) {
                 AnalyticsScreen()
             }
+            
             composable(Screen.Settings.route) {
                 SettingsScreen()
             }
         }
-    }
-}
-
-@Composable
-fun PlaceholderScreen(title: String) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "$title - Coming Soon!",
-            style = MaterialTheme.typography.headlineMedium
-        )
     }
 }
