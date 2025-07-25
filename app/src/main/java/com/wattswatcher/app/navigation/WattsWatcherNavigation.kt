@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -22,6 +23,7 @@ import com.wattswatcher.app.ui.devices.DeviceControlScreen
 import com.wattswatcher.app.ui.billing.BillingScreen
 import com.wattswatcher.app.ui.analytics.AnalyticsScreen
 import com.wattswatcher.app.ui.settings.SettingsScreen
+import com.wattswatcher.app.ui.animations.WattsWatcherAnimations
 
 sealed class Screen(val route: String, val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     object Dashboard : Screen("dashboard", "Dashboard", Icons.Default.Dashboard)
@@ -44,10 +46,11 @@ fun WattsWatcherNavigation() {
     )
     
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.onSurface
+                tonalElevation = 8.dp
             ) {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
@@ -58,21 +61,13 @@ fun WattsWatcherNavigation() {
                             Icon(
                                 screen.icon, 
                                 contentDescription = null,
-                                tint = if (currentDestination?.hierarchy?.any { it.route == screen.route } == true) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                }
+                                modifier = Modifier.animateContentSize()
                             ) 
                         },
                         label = { 
                             Text(
                                 screen.title,
-                                color = if (currentDestination?.hierarchy?.any { it.route == screen.route } == true) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                }
+                                style = MaterialTheme.typography.labelSmall
                             ) 
                         },
                         selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
@@ -104,35 +99,45 @@ fun WattsWatcherNavigation() {
             enterTransition = {
                 slideInHorizontally(
                     initialOffsetX = { it },
-                    animationSpec = tween(300)
-                ) + fadeIn(animationSpec = tween(300))
+                    animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
+                ) + fadeIn(
+                    animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
+                )
             },
             exitTransition = {
                 slideOutHorizontally(
                     targetOffsetX = { -it / 3 },
-                    animationSpec = tween(300)
-                ) + fadeOut(animationSpec = tween(200))
+                    animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
+                ) + fadeOut(
+                    animationSpec = tween(WattsWatcherAnimations.FAST_ANIMATION)
+                )
             },
             popEnterTransition = {
                 slideInHorizontally(
                     initialOffsetX = { -it / 3 },
-                    animationSpec = tween(300)
-                ) + fadeIn(animationSpec = tween(300))
+                    animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
+                ) + fadeIn(
+                    animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
+                )
             },
             popExitTransition = {
                 slideOutHorizontally(
                     targetOffsetX = { it },
-                    animationSpec = tween(300)
-                ) + fadeOut(animationSpec = tween(200))
+                    animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
+                ) + fadeOut(
+                    animationSpec = tween(WattsWatcherAnimations.FAST_ANIMATION)
+                )
             }
         ) {
             composable(
                 Screen.Dashboard.route,
                 enterTransition = {
-                    slideInVertically(
-                        initialOffsetY = { it / 4 },
-                        animationSpec = tween(400)
-                    ) + fadeIn(animationSpec = tween(400))
+                    slideInHorizontally(
+                        initialOffsetX = { 0 },
+                        animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
+                    ) + fadeIn(
+                        animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
+                    )
                 }
             ) {
                 DashboardScreen(
@@ -153,11 +158,23 @@ fun WattsWatcherNavigation() {
                 enterTransition = {
                     slideInVertically(
                         initialOffsetY = { it },
-                        animationSpec = tween(350)
-                    ) + fadeIn(animationSpec = tween(350))
+                        animationSpec = tween(
+                            durationMillis = WattsWatcherAnimations.NORMAL_ANIMATION,
+                            easing = WattsWatcherAnimations.FastOutSlowInEasing
+                        )
+                    ) + fadeIn(
+                        animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
+                    )
                 }
             ) {
-                DeviceControlScreen()
+                DeviceControlScreen(
+                    onNavigateToDashboard = {
+                        navController.navigate(Screen.Dashboard.route)
+                    },
+                    onNavigateToAnalytics = {
+                        navController.navigate(Screen.Analytics.route)
+                    }
+                )
             }
             
             composable(
@@ -165,14 +182,29 @@ fun WattsWatcherNavigation() {
                 enterTransition = {
                     slideInVertically(
                         initialOffsetY = { it / 2 },
-                        animationSpec = tween(350)
-                    ) + fadeIn(animationSpec = tween(350)) + scaleIn(
+                        animationSpec = tween(
+                            durationMillis = WattsWatcherAnimations.NORMAL_ANIMATION,
+                            easing = WattsWatcherAnimations.FastOutSlowInEasing
+                        )
+                    ) + fadeIn(
+                        animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
+                    ) + scaleIn(
                         initialScale = 0.9f,
-                        animationSpec = tween(350)
+                        animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
                     )
                 }
             ) {
-                BillingScreen()
+                BillingScreen(
+                    onNavigateToDashboard = {
+                        navController.navigate(Screen.Dashboard.route)
+                    },
+                    onNavigateToDevices = {
+                        navController.navigate(Screen.Devices.route)
+                    },
+                    onNavigateToAnalytics = {
+                        navController.navigate(Screen.Analytics.route)
+                    }
+                )
             }
             
             composable(
@@ -180,14 +212,26 @@ fun WattsWatcherNavigation() {
                 enterTransition = {
                     slideInHorizontally(
                         initialOffsetX = { it },
-                        animationSpec = tween(350)
-                    ) + fadeIn(animationSpec = tween(350)) + scaleIn(
+                        animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
+                    ) + fadeIn(
+                        animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
+                    ) + scaleIn(
                         initialScale = 0.95f,
-                        animationSpec = tween(350)
+                        animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
                     )
                 }
             ) {
-                AnalyticsScreen()
+                AnalyticsScreen(
+                    onNavigateToDashboard = {
+                        navController.navigate(Screen.Dashboard.route)
+                    },
+                    onNavigateToDevices = {
+                        navController.navigate(Screen.Devices.route)
+                    },
+                    onNavigateToBilling = {
+                        navController.navigate(Screen.Billing.route)
+                    }
+                )
             }
             
             composable(Screen.Settings.route) {

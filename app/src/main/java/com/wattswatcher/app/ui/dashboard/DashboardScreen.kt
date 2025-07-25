@@ -44,11 +44,12 @@ fun DashboardScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(16.dp),
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 20.dp),
+        contentPadding = PaddingValues(vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        // Welcome Header with Animation
+        // Welcome Header
         item {
             WattsWatcherAnimations.StaggeredAnimation(
                 visible = true,
@@ -88,8 +89,8 @@ fun DashboardScreen(
             }
         }
         
-        // Anomaly Alert (if any)
-        if (state.anomalyDetected && state.anomalies.isNotEmpty()) {
+        // Anomaly Alerts
+        if (state.anomalies.isNotEmpty()) {
             item {
                 WattsWatcherAnimations.StaggeredAnimation(
                     visible = true,
@@ -97,9 +98,7 @@ fun DashboardScreen(
                 ) {
                     AnomalyAlertCard(
                         anomalies = state.anomalies,
-                        onDismiss = { anomaly ->
-                            viewModel.dismissAnomaly(anomaly)
-                        }
+                        onDismiss = { anomaly -> viewModel.dismissAnomaly(anomaly) }
                     )
                 }
             }
@@ -114,18 +113,21 @@ fun DashboardScreen(
                 ) {
                     ActiveDevicesSection(
                         devices = state.activeDevices,
-                        onDevicesClick = onNavigateToDevices
+                        onViewAllClick = onNavigateToDevices
                     )
                 }
             }
         }
         
-        // Error handling
-        state.error?.let { error ->
-            item {
-                ErrorCard(
-                    error = error,
-                    onDismiss = { viewModel.dismissError() }
+        // Energy Insights Card
+        item {
+            WattsWatcherAnimations.StaggeredAnimation(
+                visible = true,
+                index = 5
+            ) {
+                EnergyInsightsCard(
+                    monthlyUsage = state.monthlyUsage,
+                    estimatedBill = state.estimatedBill
                 )
             }
         }
@@ -142,7 +144,7 @@ private fun WelcomeHeader() {
             color = MaterialTheme.colorScheme.onBackground
         )
         Text(
-            text = "Monitor and control your energy usage",
+            text = "Monitor and control your home energy",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
             modifier = Modifier.padding(top = 4.dp)
@@ -163,7 +165,8 @@ private fun LivePowerGaugeCard(
         colors = CardDefaults.cardColors(
             containerColor = WattsWatcherColors.cardBackground
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        shape = RoundedCornerShape(24.dp)
     ) {
         Box(
             modifier = Modifier
@@ -171,10 +174,10 @@ private fun LivePowerGaugeCard(
                 .background(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            WattsWatcherColors.gradientStart.copy(alpha = 0.1f),
+                            WattsWatcherColors.energyGreen.copy(alpha = 0.1f),
                             Color.Transparent
                         ),
-                        radius = 400f
+                        radius = 300f
                     )
                 )
         ) {
@@ -185,7 +188,7 @@ private fun LivePowerGaugeCard(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Live indicator
+                // Live Indicator
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(bottom = 16.dp)
@@ -202,59 +205,80 @@ private fun LivePowerGaugeCard(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "LIVE",
-                        style = MaterialTheme.typography.labelSmall,
+                        text = "LIVE POWER",
+                        style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = WattsWatcherColors.energyGreen
                     )
                 }
                 
-                // Main power reading
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(48.dp),
-                        color = MaterialTheme.colorScheme.primary
+                // Power Value with Animation
+                WattsWatcherAnimations.AnimatedCounter(
+                    targetValue = currentUsage.toFloat()
+                ) { animatedValue ->
+                    Text(
+                        text = "${animatedValue.roundToInt()}W",
+                        style = MaterialTheme.typography.displayLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 48.sp
                     )
-                } else {
-                    WattsWatcherAnimations.AnimatedCounter(
-                        targetValue = currentUsage.toFloat()
-                    ) { animatedValue ->
-                        Text(
-                            text = "${animatedValue.roundToInt()}W",
-                            style = MaterialTheme.typography.displayLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
                 }
                 
                 Text(
                     text = "Current Usage",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                    modifier = Modifier.padding(top = 8.dp)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(bottom = 24.dp)
                 )
                 
-                // Voltage info
+                // Voltage and Frequency
                 Row(
-                    modifier = Modifier.padding(top = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    horizontalArrangement = Arrangement.spacedBy(32.dp)
                 ) {
-                    Icon(
-                        Icons.Default.ElectricBolt,
-                        contentDescription = null,
-                        tint = WattsWatcherColors.energyAmber,
-                        modifier = Modifier.size(16.dp)
+                    PowerMetric(
+                        label = "Voltage",
+                        value = "${voltage.roundToInt()}V",
+                        icon = Icons.Default.ElectricBolt
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "${voltage.roundToInt()}V",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                    PowerMetric(
+                        label = "Frequency",
+                        value = "50Hz",
+                        icon = Icons.Default.Waves
                     )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PowerMetric(
+    label: String,
+    value: String,
+    icon: ImageVector
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = WattsWatcherColors.energyBlue,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+        )
     }
 }
 
@@ -270,34 +294,37 @@ private fun QuickStatsRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Monthly Usage
+        // Monthly Usage Card
         QuickStatCard(
             modifier = Modifier.weight(1f),
             title = "Usage",
             value = "${String.format("%.1f", monthlyUsage)} kWh",
-            icon = Icons.Default.TrendingUp,
+            subtitle = "This month",
+            icon = Icons.Default.Analytics,
             color = WattsWatcherColors.energyBlue,
             onClick = onAnalyticsClick
         )
         
-        // Estimated Bill
+        // Estimated Bill Card
         QuickStatCard(
             modifier = Modifier.weight(1f),
             title = "Bill",
             value = "₹${String.format("%.0f", estimatedBill)}",
+            subtitle = "Estimated",
             icon = Icons.Default.Receipt,
             color = WattsWatcherColors.energyAmber,
             onClick = onBillingClick
         )
         
-        // Active Devices
+        // Active Devices Card
         QuickStatCard(
             modifier = Modifier.weight(1f),
             title = "Active",
-            value = "$activeDevicesCount devices",
+            value = "$activeDevicesCount",
+            subtitle = "Devices",
             icon = Icons.Default.DeviceHub,
             color = WattsWatcherColors.energyGreen,
-            onClick = {}
+            onClick = { }
         )
     }
 }
@@ -307,40 +334,58 @@ private fun QuickStatCard(
     modifier: Modifier = Modifier,
     title: String,
     value: String,
+    subtitle: String,
     icon: ImageVector,
     color: Color,
     onClick: () -> Unit
 ) {
     Card(
         modifier = modifier
+            .height(100.dp)
             .clickable { onClick() },
         colors = CardDefaults.cardColors(
             containerColor = WattsWatcherColors.cardBackground
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            
+            Column {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+            }
         }
     }
 }
@@ -355,30 +400,30 @@ private fun AnomalyAlertCard(
         colors = CardDefaults.cardColors(
             containerColor = WattsWatcherColors.energyAmber.copy(alpha = 0.1f)
         ),
-        border = BorderStroke(1.dp, WattsWatcherColors.energyAmber.copy(alpha = 0.3f))
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(20.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    Icons.Default.Warning,
+                    imageVector = Icons.Default.Warning,
                     contentDescription = null,
                     tint = WattsWatcherColors.energyAmber,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Energy Alert",
+                    text = "Energy Alerts",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
             
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             
             anomalies.forEach { anomaly ->
                 Row(
@@ -399,7 +444,7 @@ private fun AnomalyAlertCard(
                         modifier = Modifier.size(24.dp)
                     ) {
                         Icon(
-                            Icons.Default.Close,
+                            imageVector = Icons.Default.Close,
                             contentDescription = "Dismiss",
                             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                             modifier = Modifier.size(16.dp)
@@ -414,18 +459,17 @@ private fun AnomalyAlertCard(
 @Composable
 private fun ActiveDevicesSection(
     devices: List<Device>,
-    onDevicesClick: () -> Unit
+    onViewAllClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onDevicesClick() },
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = WattsWatcherColors.cardBackground
-        )
+        ),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(20.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -438,91 +482,126 @@ private fun ActiveDevicesSection(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Icon(
-                    Icons.Default.ArrowForward,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    modifier = Modifier.size(20.dp)
-                )
+                TextButton(onClick = onViewAllClick) {
+                    Text(
+                        text = "View All",
+                        color = WattsWatcherColors.energyBlue
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.height(12.dp))
             
             devices.take(3).forEach { device ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = device.icon,
-                            fontSize = 20.sp
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = device.name,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    Text(
-                        text = "${device.wattage.toInt()}W",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = WattsWatcherColors.energyGreen
-                    )
+                ActiveDeviceItem(device = device)
+                if (device != devices.take(3).last()) {
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
-            }
-            
-            if (devices.size > 3) {
-                Text(
-                    text = "+${devices.size - 3} more devices",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(top = 8.dp)
-                )
             }
         }
     }
 }
 
 @Composable
-private fun ErrorCard(
-    error: String,
-    onDismiss: () -> Unit
+private fun ActiveDeviceItem(device: Device) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        WattsWatcherColors.energyGreen.copy(alpha = 0.1f),
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = device.icon,
+                    fontSize = 18.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = device.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "${device.wattage.toInt()}W • ${device.room}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+            }
+        }
+        
+        WattsWatcherAnimations.PulsingIndicator {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(
+                        WattsWatcherColors.energyGreen,
+                        CircleShape
+                    )
+            )
+        }
+    }
+}
+
+@Composable
+private fun EnergyInsightsCard(
+    monthlyUsage: Double,
+    estimatedBill: Double
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer
-        )
+            containerColor = WattsWatcherColors.cardBackground
+        ),
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(20.dp)
         ) {
-            Icon(
-                Icons.Default.Error,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = error,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f),
-                color = MaterialTheme.colorScheme.onErrorContainer
-            )
-            TextButton(
-                onClick = onDismiss
+            Row(
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Dismiss")
+                Icon(
+                    imageVector = Icons.Default.Lightbulb,
+                    contentDescription = null,
+                    tint = WattsWatcherColors.energyAmber,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Energy Insights",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            val insight = when {
+                monthlyUsage > 300 -> "Your usage is higher than average. Consider optimizing device schedules."
+                estimatedBill > 1500 -> "Your bill is trending high. Check for energy-hungry devices."
+                else -> "Great job! Your energy usage is within normal range."
+            }
+            
+            Text(
+                text = insight,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                lineHeight = 20.sp
+            )
         }
     }
 }

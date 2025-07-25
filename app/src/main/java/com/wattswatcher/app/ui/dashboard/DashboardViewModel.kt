@@ -75,17 +75,28 @@ class DashboardViewModel(
     private fun startLiveDataStream() {
         viewModelScope.launch {
             try {
-                // Combine live data stream with device updates
+                // Get simulation engine for real-time bill updates
+                val simulationEngine = repository.getSimulationEngine()
+                
+                // Combine live data stream with device updates for real-time bill calculation
                 combine(
                     repository.getLiveDataStream(),
-                    repository.getDevices()
-                ) { liveData, devicesResult ->
+                    repository.getDevices(),
+                    simulationEngine.liveData,
+                    simulationEngine.devices
+                ) { liveData, devicesResult, _, _ ->
                     val devices = devicesResult.getOrNull() ?: emptyList()
                     val activeDevices = devices.filter { it.isOn }
                     
+                    // Get real-time bill and usage from simulation engine
+                    val currentBill = simulationEngine.getCurrentBillEstimate()
+                    val currentUsage = simulationEngine.getMonthlyUsage()
+                    
                     _state.value = _state.value.copy(
                         liveData = liveData,
-                        activeDevices = activeDevices
+                        activeDevices = activeDevices,
+                        estimatedBill = currentBill,
+                        monthlyUsage = currentUsage
                     )
                 }.collect { }
             } catch (e: Exception) {

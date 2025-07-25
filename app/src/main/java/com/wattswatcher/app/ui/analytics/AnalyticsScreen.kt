@@ -24,7 +24,11 @@ import com.wattswatcher.app.ui.components.PeriodFilterChip
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnalyticsScreen() {
+fun AnalyticsScreen(
+    onNavigateToDashboard: () -> Unit = {},
+    onNavigateToDevices: () -> Unit = {},
+    onNavigateToBilling: () -> Unit = {}
+) {
     val app = LocalContext.current.applicationContext as WattsWatcherApplication
     val viewModel: AnalyticsViewModel = viewModel {
         AnalyticsViewModel(app.repository)

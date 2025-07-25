@@ -1,11 +1,11 @@
 package com.wattswatcher.app.ui.devices
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -14,99 +14,143 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.ui.platform.LocalContext
 import com.wattswatcher.app.WattsWatcherApplication
 import com.wattswatcher.app.data.model.Device
+import com.wattswatcher.app.data.model.DeviceType
+import com.wattswatcher.app.data.model.createDevice
+import com.wattswatcher.app.ui.animations.WattsWatcherAnimations
+import com.wattswatcher.app.ui.theme.WattsWatcherColors
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DeviceControlScreen() {
+fun DeviceControlScreen(
+    onNavigateToDashboard: () -> Unit = {},
+    onNavigateToAnalytics: () -> Unit = {}
+) {
     val app = LocalContext.current.applicationContext as WattsWatcherApplication
     val viewModel: DeviceControlViewModel = viewModel {
         DeviceControlViewModel(app.repository)
     }
     val state by viewModel.state.collectAsState()
+    var showAddDeviceDialog by remember { mutableStateOf(false) }
     
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(vertical = 20.dp)
     ) {
-        // Header
+        // Header with Add Device Button
         item {
-            DeviceControlHeader()
-        }
-        
-        // Stats Overview
-        item {
-            DeviceStatsCard(
-                activeCount = state.activeDevicesCount,
-                totalPower = state.totalPower.toInt(),
-                totalDevices = state.totalRegisteredDevices
-            )
-        }
-        
-        // Master Control
-        item {
-            MasterControlCard(
-                onTurnOnAll = { viewModel.toggleAllDevices(true) },
-                onTurnOffAll = { viewModel.toggleAllDevices(false) }
-            )
-        }
-        
-        // Devices List Header
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            WattsWatcherAnimations.StaggeredAnimation(
+                visible = true,
+                index = 0
             ) {
-                Text(
-                    text = "All Devices (${state.devices.size})",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                
-                IconButton(onClick = { viewModel.refreshDevices() }) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Refresh",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Device Control",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Text(
+                            text = "Manage your smart devices",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                        )
+                    }
+                    
+                    FloatingActionButton(
+                        onClick = { showAddDeviceDialog = true },
+                        containerColor = WattsWatcherColors.energyGreen,
+                        contentColor = Color.White,
+                        modifier = Modifier.size(56.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Add Device",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
         }
         
-        // Loading State
-        if (state.isLoading) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+        // Power Summary Card
+        item {
+            WattsWatcherAnimations.StaggeredAnimation(
+                visible = true,
+                index = 1
+            ) {
+                PowerSummaryCard(
+                    activeDevices = state.activeDevicesCount,
+                    totalPower = state.totalPower,
+                    totalDevices = state.totalRegisteredDevices
+                )
+            }
+        }
+        
+        // Master Control Card
+        item {
+            WattsWatcherAnimations.StaggeredAnimation(
+                visible = true,
+                index = 2
+            ) {
+                MasterControlCard(
+                    onTurnOnAll = { viewModel.toggleAllDevices(true) },
+                    onTurnOffAll = { viewModel.toggleAllDevices(false) }
+                )
             }
         }
         
         // Devices List
-        items(state.devices) { device ->
-            ModernDeviceCard(
-                device = device,
-                onToggle = { isOn ->
-                    viewModel.toggleDevice(device.id, isOn)
+        if (state.devices.isNotEmpty()) {
+            item {
+                Text(
+                    text = "Your Devices",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+            }
+            
+            itemsIndexed(state.devices) { index, device ->
+                WattsWatcherAnimations.StaggeredAnimation(
+                    visible = true,
+                    index = index + 3
+                ) {
+                    ModernDeviceCard(
+                        device = device,
+                        onToggle = { viewModel.toggleDevice(device.id, !device.isOn) },
+                        onSchedule = { 
+                            // TODO: Implement scheduling dialog
+                        },
+                        onOptimize = {
+                            // Show optimization suggestion
+                        }
+                    )
                 }
-            )
+            }
+        } else {
+            item {
+                EmptyDevicesCard(
+                    onAddDevice = { showAddDeviceDialog = true }
+                )
+            }
         }
         
         // Error handling
@@ -114,99 +158,130 @@ fun DeviceControlScreen() {
             item {
                 ErrorCard(
                     error = error,
-                    onRetry = { viewModel.refreshDevices() }
+                    onDismiss = { viewModel.dismissError() }
                 )
+            }
+        }
+    }
+    
+    // Add Device Dialog
+    if (showAddDeviceDialog) {
+        AddDeviceDialog(
+            onDismiss = { showAddDeviceDialog = false },
+            onAddDevice = { device ->
+                viewModel.addDevice(device)
+                showAddDeviceDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun PowerSummaryCard(
+    activeDevices: Int,
+    totalPower: Double,
+    totalDevices: Int
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            WattsWatcherColors.gradientStart.copy(alpha = 0.1f),
+                            Color.Transparent
+                        )
+                    )
+                )
+                .padding(20.dp)
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Power Summary",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    
+                    // Live indicator
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        WattsWatcherAnimations.PulsingIndicator {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(WattsWatcherColors.energyGreen, CircleShape)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "LIVE",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = WattsWatcherColors.energyGreen
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    PowerStat(
+                        value = "$activeDevices",
+                        label = "Active",
+                        color = WattsWatcherColors.energyGreen
+                    )
+                    PowerStat(
+                        value = "${totalPower.roundToInt()}W",
+                        label = "Total Power",
+                        color = WattsWatcherColors.energyBlue
+                    )
+                    PowerStat(
+                        value = "$totalDevices",
+                        label = "Devices",
+                        color = WattsWatcherColors.energyAmber
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun DeviceControlHeader() {
-    Column {
-        Text(
-            text = "Device Control",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(
-            text = "Manage your smart devices",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
-private fun DeviceStatsCard(
-    activeCount: Int,
-    totalPower: Int,
-    totalDevices: Int
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            StatItem(
-                label = "Active",
-                value = activeCount.toString(),
-                icon = Icons.Default.PowerSettingsNew,
-                color = Color.Green
-            )
-            StatItem(
-                label = "Total Power",
-                value = "${totalPower}W",
-                icon = Icons.Default.ElectricBolt,
-                color = MaterialTheme.colorScheme.primary
-            )
-            StatItem(
-                label = "Devices",
-                value = totalDevices.toString(),
-                icon = Icons.Default.DeviceHub,
-                color = MaterialTheme.colorScheme.secondary
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatItem(
-    label: String,
+private fun PowerStat(
     value: String,
-    icon: ImageVector,
+    label: String,
     color: Color
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = color,
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = value,
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onPrimaryContainer
+            color = color
         )
         Text(
             text = label,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
         )
     }
 }
@@ -218,38 +293,20 @@ private fun MasterControlCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+            containerColor = WattsWatcherColors.cardBackground
+        ),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = "Master Control",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Control all devices at once",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+            Text(
+                text = "Master Control",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
             
             Spacer(modifier = Modifier.height(16.dp))
             
@@ -261,14 +318,10 @@ private fun MasterControlCard(
                     onClick = onTurnOnAll,
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Green
+                        containerColor = WattsWatcherColors.energyGreen
                     )
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.PowerSettingsNew,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Icon(Icons.Default.PowerSettingsNew, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Turn On All")
                 }
@@ -277,11 +330,7 @@ private fun MasterControlCard(
                     onClick = onTurnOffAll,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.PowerOff,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Icon(Icons.Default.PowerOff, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Turn Off All")
                 }
@@ -293,80 +342,57 @@ private fun MasterControlCard(
 @Composable
 private fun ModernDeviceCard(
     device: Device,
-    onToggle: (Boolean) -> Unit
+    onToggle: () -> Unit,
+    onSchedule: () -> Unit,
+    onOptimize: () -> Unit
 ) {
-    val backgroundColor by animateColorAsState(
-        targetValue = if (device.isOn) 
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-        else 
-            MaterialTheme.colorScheme.surface,
-        animationSpec = tween(300),
-        label = "background"
-    )
-    
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = backgroundColor
+            containerColor = WattsWatcherColors.cardBackground
         ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (device.isOn) 4.dp else 2.dp
-        )
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
-            // Header Row
+            // Device Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Device Icon
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            if (device.isOn) Color.Green.copy(alpha = 0.2f)
-                            else MaterialTheme.colorScheme.surfaceVariant
-                        ),
-                    contentAlignment = Alignment.Center
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = getDeviceIcon(device.name),
-                        contentDescription = null,
-                        tint = if (device.isOn) Color.Green else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(24.dp)
+                    Text(
+                        text = device.icon,
+                        style = MaterialTheme.typography.headlineMedium
                     )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = device.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "${device.room} • ${device.wattage.toInt()}W",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                    }
                 }
                 
-                Spacer(modifier = Modifier.width(16.dp))
-                
-                // Device Info
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = device.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "${device.wattage}W • ${if (device.isOn) "ON" else "OFF"}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (device.isOn) Color.Green else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                
-                // Toggle Switch
                 Switch(
                     checked = device.isOn,
-                    onCheckedChange = onToggle,
+                    onCheckedChange = { onToggle() },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White,
-                        checkedTrackColor = Color.Green,
-                        uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                        checkedTrackColor = WattsWatcherColors.energyGreen,
+                        uncheckedThumbColor = Color.White,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.outline
                     )
                 )
             }
@@ -379,33 +405,33 @@ private fun ModernDeviceCard(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    UsageItem(
+                    UsageStat(
                         label = "Today",
-                        value = "${String.format("%.1f", device.timeTodayH)}h"
+                        value = "${String.format("%.1f", device.dailyUsage)} kWh"
                     )
-                    UsageItem(
-                        label = "Energy",
-                        value = "${String.format("%.2f", device.energyTodayKWh)} kWh"
+                    UsageStat(
+                        label = "This Month",
+                        value = "${String.format("%.1f", device.monthlyUsage)} kWh"
                     )
-                    UsageItem(
+                    UsageStat(
                         label = "Cost",
-                        value = "₹${String.format("%.0f", device.energyTodayKWh * 5.5)}"
+                        value = "₹${String.format("%.2f", device.getDailyEstimatedCost())}"
                     )
                 }
                 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 
-                // Quick Actions
+                // Action Buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedButton(
-                        onClick = { /* TODO: Schedule */ },
+                        onClick = onSchedule,
                         modifier = Modifier.weight(1f)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Schedule,
+                            Icons.Default.Schedule,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp)
                         )
@@ -414,11 +440,11 @@ private fun ModernDeviceCard(
                     }
                     
                     OutlinedButton(
-                        onClick = { /* TODO: Optimize */ },
+                        onClick = onOptimize,
                         modifier = Modifier.weight(1f)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.TrendingUp,
+                            Icons.Default.TrendingUp,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp)
                         )
@@ -432,7 +458,7 @@ private fun ModernDeviceCard(
 }
 
 @Composable
-private fun UsageItem(
+private fun UsageStat(
     label: String,
     value: String
 ) {
@@ -442,21 +468,166 @@ private fun UsageItem(
         Text(
             text = value,
             style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
         )
         Text(
             text = label,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
         )
     }
 }
 
 @Composable
+private fun EmptyDevicesCard(
+    onAddDevice: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = WattsWatcherColors.cardBackground
+        ),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(40.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                Icons.Default.DeviceHub,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "No devices added yet",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "Add your first smart device to get started",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            Button(
+                onClick = onAddDevice,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = WattsWatcherColors.energyGreen
+                )
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Add Device")
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddDeviceDialog(
+    onDismiss: () -> Unit,
+    onAddDevice: (Device) -> Unit
+) {
+    var deviceName by remember { mutableStateOf("") }
+    var selectedType by remember { mutableStateOf(DeviceType.OTHER) }
+    var deviceWattage by remember { mutableStateOf("") }
+    var deviceRoom by remember { mutableStateOf("") }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Add New Device",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                OutlinedTextField(
+                    value = deviceName,
+                    onValueChange = { deviceName = it },
+                    label = { Text("Device Name") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                OutlinedTextField(
+                    value = deviceRoom,
+                    onValueChange = { deviceRoom = it },
+                    label = { Text("Room") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                OutlinedTextField(
+                    value = deviceWattage,
+                    onValueChange = { deviceWattage = it },
+                    label = { Text("Power (Watts)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                // Device Type Selection
+                Text(
+                    text = "Device Type",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(DeviceType.values()) { type ->
+                        FilterChip(
+                            onClick = { selectedType = type },
+                            label = { 
+                                Text(
+                                    text = type.name.replace("_", " ").lowercase()
+                                        .replaceFirstChar { it.uppercase() }
+                                )
+                            },
+                            selected = selectedType == type
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (deviceName.isNotBlank() && deviceWattage.isNotBlank()) {
+                        val device = createDevice(
+                            name = deviceName,
+                            type = selectedType,
+                            wattage = deviceWattage.toDoubleOrNull() ?: 0.0,
+                            room = deviceRoom.ifBlank { "Unknown" }
+                        )
+                        onAddDevice(device)
+                    }
+                },
+                enabled = deviceName.isNotBlank() && deviceWattage.isNotBlank()
+            ) {
+                Text("Add Device")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
 private fun ErrorCard(
     error: String,
-    onRetry: () -> Unit
+    onDismiss: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -464,40 +635,25 @@ private fun ErrorCard(
             containerColor = MaterialTheme.colorScheme.errorContainer
         )
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Error",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onErrorContainer
+            Icon(
+                Icons.Default.Error,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error
             )
+            Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = error,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-                modifier = Modifier.padding(vertical = 8.dp)
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.onErrorContainer
             )
-            TextButton(onClick = onRetry) {
-                Text("Retry")
+            TextButton(onClick = onDismiss) {
+                Text("Dismiss")
             }
         }
-    }
-}
-
-private fun getDeviceIcon(deviceName: String): ImageVector {
-    return when {
-        deviceName.contains("AC", ignoreCase = true) -> Icons.Default.AcUnit
-        deviceName.contains("Fan", ignoreCase = true) -> Icons.Default.Air
-        deviceName.contains("TV", ignoreCase = true) -> Icons.Default.Tv
-        deviceName.contains("Refrigerator", ignoreCase = true) -> Icons.Default.Kitchen
-        deviceName.contains("Heater", ignoreCase = true) -> Icons.Default.LocalFireDepartment
-        deviceName.contains("Washing", ignoreCase = true) -> Icons.Default.LocalLaundryService
-        deviceName.contains("Microwave", ignoreCase = true) -> Icons.Default.Microwave
-        deviceName.contains("Router", ignoreCase = true) -> Icons.Default.Router
-        deviceName.contains("Light", ignoreCase = true) -> Icons.Default.Lightbulb
-        deviceName.contains("Gaming", ignoreCase = true) -> Icons.Default.SportsEsports
-        else -> Icons.Default.DeviceHub
     }
 }
