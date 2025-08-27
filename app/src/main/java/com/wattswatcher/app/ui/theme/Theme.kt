@@ -54,41 +54,41 @@ private val DarkColorScheme = darkColorScheme(
     inversePrimary = LightPrimaryAccent
 )
 
-// Clean Light Color Scheme - Modern energy app
+// Clean Light Color Scheme - High contrast for readability
 private val LightColorScheme = lightColorScheme(
-    primary = LightPrimaryAccent,                   // Electric Blue
+    primary = LightPrimaryAccent,                   // Darker Electric Blue
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFD1E4FF),
-    onPrimaryContainer = Color(0xFF001D36),
+    primaryContainer = Color(0xFFE3F2FD),
+    onPrimaryContainer = Color(0xFF0D47A1),
     
-    secondary = LightSecondaryAccent,               // Emerald Green
+    secondary = LightSecondaryAccent,               // Darker Emerald Green
     onSecondary = Color.White,
     secondaryContainer = Color(0xFFE8F5E8),
-    onSecondaryContainer = Color(0xFF002204),
+    onSecondaryContainer = Color(0xFF1B5E20),
     
-    tertiary = LightWarningColor,                   // Bright Amber
+    tertiary = LightWarningColor,                   // Darker Amber
     onTertiary = Color.White,
-    tertiaryContainer = Color(0xFFFFE0B2),
-    onTertiaryContainer = Color(0xFF2E1500),
+    tertiaryContainer = Color(0xFFFFF3E0),
+    onTertiaryContainer = Color(0xFFE65100),
     
-    error = EnergyRed,
+    error = Color(0xFFD32F2F),
     onError = Color.White,
-    errorContainer = Color(0xFFFFDAD6),
-    onErrorContainer = Color(0xFF410002),
+    errorContainer = Color(0xFFFFEBEE),
+    onErrorContainer = Color(0xFFB71C1C),
     
-    background = LightBackground,                   // Soft Pearl White
-    onBackground = LightMainText,                   // Rich Charcoal
+    background = LightBackground,                   // Pure White
+    onBackground = LightMainText,                   // Pure Black
     
     surface = Color.White,
-    onSurface = LightMainText,                      // Rich Charcoal
-    surfaceVariant = LightCardBackground,           // Light Gray
-    onSurfaceVariant = LightSubText,                // Muted Gray
+    onSurface = LightMainText,                      // Pure Black
+    surfaceVariant = LightCardBackground,           // Very Light Gray
+    onSurfaceVariant = LightSubText,                // Dark Gray
     
-    outline = Color(0xFFCAC4D0),
+    outline = Color(0xFF9E9E9E),
     outlineVariant = Color(0xFFE0E0E0),
     
-    inverseSurface = DarkCardBackground,
-    inverseOnSurface = DarkMainText,
+    inverseSurface = Color(0xFF121212),
+    inverseOnSurface = Color(0xFFFFFFFF),
     inversePrimary = DarkPrimaryAccent
 )
 

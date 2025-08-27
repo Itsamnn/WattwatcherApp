@@ -3,7 +3,9 @@ package com.wattswatcher.app.ui.devices
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wattswatcher.app.data.model.Device
+import com.wattswatcher.app.data.model.DevicePriority
 import com.wattswatcher.app.data.repository.WattsWatcherRepository
+import com.wattswatcher.app.simulation.GridStatus
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -13,7 +15,8 @@ data class DeviceControlState(
     val activeDevicesCount: Int = 0,
     val totalPower: Double = 0.0,
     val totalRegisteredDevices: Int = 0,
-    val error: String? = null
+    val error: String? = null,
+    val gridStatus: GridStatus = GridStatus.STABLE
 )
 
 class DeviceControlViewModel(
@@ -25,6 +28,7 @@ class DeviceControlViewModel(
     
     init {
         fetchDevices()
+        monitorGridStatus()
     }
     
     private fun fetchDevices() {
@@ -32,6 +36,7 @@ class DeviceControlViewModel(
             _state.value = _state.value.copy(isLoading = true, error = null)
             
             try {
+                // Monitor grid status changes
                 repository.getDevices().collect { result ->
                     result.fold(
                         onSuccess = { devices ->
@@ -130,5 +135,63 @@ class DeviceControlViewModel(
     
     fun dismissError() {
         _state.value = _state.value.copy(error = null)
+    }
+    
+    /**
+     * Monitor grid status changes from the simulation engine
+     */
+    private fun monitorGridStatus() {
+        viewModelScope.launch {
+            try {
+                val simulationEngine = repository.getSimulationEngine()
+                simulationEngine.gridStatus.collect { gridStatus ->
+                    _state.value = _state.value.copy(gridStatus = gridStatus)
+                }
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(error = e.message ?: "Failed to monitor grid status")
+            }
+        }
+    }
+    
+    /**
+     * Update device priority
+     */
+    fun updateDevicePriority(deviceId: String, priority: DevicePriority) {
+        viewModelScope.launch {
+            try {
+                val simulationEngine = repository.getSimulationEngine()
+                simulationEngine.updateDevicePriority(deviceId, priority)
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(error = e.message ?: "Failed to update device priority")
+            }
+        }
+    }
+    
+    /**
+     * Trigger load shedding simulation
+     */
+    fun triggerLoadShedding() {
+        viewModelScope.launch {
+            try {
+                val simulationEngine = repository.getSimulationEngine()
+                simulationEngine.triggerLoadShedding()
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(error = e.message ?: "Failed to trigger load shedding")
+            }
+        }
+    }
+    
+    /**
+     * End load shedding simulation
+     */
+    fun endLoadShedding() {
+        viewModelScope.launch {
+            try {
+                val simulationEngine = repository.getSimulationEngine()
+                simulationEngine.endLoadShedding()
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(error = e.message ?: "Failed to end load shedding")
+            }
+        }
     }
 }

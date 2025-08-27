@@ -7,6 +7,7 @@ import com.wattswatcher.app.data.model.Device
 import com.wattswatcher.app.data.repository.WattsWatcherRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 data class BillingState(
     val isLoading: Boolean = false,
@@ -16,6 +17,10 @@ data class BillingState(
     val currentBillAmount: Double = 0.0,
     val currentUsage: Double = 0.0,
     val isGeneratingBill: Boolean = false,
+    val isPrepaidMode: Boolean = false,
+    val prepaidBalance: Double = 450.0,
+    val lastTopUpAmount: Double? = null,
+    val showTopUpSuccess: Boolean = false,
     val error: String? = null
 )
 
@@ -25,10 +30,12 @@ class BillingViewModel(
     
     private val _state = MutableStateFlow(BillingState())
     val state: StateFlow<BillingState> = _state.asStateFlow()
+    private val electricityRate = 4.5 // Rate per kWh
     
     init {
         loadBillingData()
         startRealTimeBillUpdates()
+        monitorPrepaidBalance()
     }
     
     private fun loadBillingData() {
@@ -92,6 +99,27 @@ class BillingViewModel(
         }
     }
     
+    /**
+     * Monitor prepaid balance from simulation engine
+     */
+    private fun monitorPrepaidBalance() {
+        viewModelScope.launch {
+            try {
+                val simulationEngine = repository.getSimulationEngine()
+                val billingInfo = simulationEngine.getBillingInfo()
+                
+                _state.value = _state.value.copy(
+                    isPrepaidMode = billingInfo.isPrepaidMode,
+                    prepaidBalance = billingInfo.prepaidBalance
+                )
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    error = e.message ?: "Failed to monitor prepaid balance"
+                )
+            }
+        }
+    }
+    
     fun initiatePayment(amount: Double, method: String) {
         viewModelScope.launch {
             _state.value = _state.value.copy(
@@ -111,6 +139,14 @@ class BillingViewModel(
                         
                         // If payment successful, refresh billing data
                         if (paymentResponse.success) {
+                            if (_state.value.isPrepaidMode) {
+                                topUpPrepaidBalance(amount)
+                            } else {
+                                // For postpaid, reset the current bill to 0
+                                _state.value = _state.value.copy(
+                                    currentBillAmount = 0.0
+                                )
+                            }
                             loadBillingData()
                         }
                     },
@@ -212,29 +248,99 @@ class BillingViewModel(
             appendLine("───────────────────────────────────────")
             appendLine("PAYMENT INFORMATION")
             appendLine("───────────────────────────────────────")
-            appendLine("Due Date: ${getNextDueDate()}")
-            appendLine("Late Payment Charges: ₹50 after due date")
+            if (_state.value.isPrepaidMode) {
+                appendLine("Billing Mode: PREPAID")
+                appendLine("Current Balance: ₹${String.format("%.2f", _state.value.prepaidBalance)}")
+                appendLine("Estimated Days Remaining: ${getEstimatedDaysRemaining()}")
+            } else {
+                appendLine("Billing Mode: POSTPAID")
+                appendLine("Due Date: ${getNextDueDate()}")
+                appendLine("Payment Status: Pending")
+            }
             appendLine()
+            appendLine("───────────────────────────────────────")
             appendLine("Thank you for using WattsWatcher!")
-            appendLine("═══════════════════════════════════════")
+            appendLine("For support: support@wattswatcher.com")
+            appendLine("───────────────────────────────────────")
         }
     }
     
     private fun getCurrentMonth(): String {
         val calendar = java.util.Calendar.getInstance()
-        val format = java.text.SimpleDateFormat("MMM yyyy", java.util.Locale.getDefault())
-        return format.format(calendar.time)
+        val month = calendar.getDisplayName(
+            java.util.Calendar.MONTH,
+            java.util.Calendar.LONG,
+            java.util.Locale.getDefault()
+        )
+        val year = calendar.get(java.util.Calendar.YEAR)
+        return "$month $year"
+    }
+    
+    /**
+     * Toggle between prepaid and postpaid billing modes
+     */
+    fun toggleBillingMode() {
+        viewModelScope.launch {
+            try {
+                val simulationEngine = repository.getSimulationEngine()
+                val newMode = !_state.value.isPrepaidMode
+                
+                // Update simulation engine
+                simulationEngine.setBillingMode(newMode)
+                
+                // Update UI state
+                _state.value = _state.value.copy(
+                    isPrepaidMode = newMode
+                )
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    error = e.message ?: "Failed to toggle billing mode"
+                )
+            }
+        }
+    }
+    
+    /**
+     * Top up prepaid balance
+     */
+    fun topUpPrepaidBalance(amount: Double) {
+        viewModelScope.launch {
+            try {
+                val simulationEngine = repository.getSimulationEngine()
+                simulationEngine.addPrepaidBalance(amount)
+                
+                val updatedInfo = simulationEngine.getBillingInfo()
+                
+                _state.value = _state.value.copy(
+                    prepaidBalance = updatedInfo.prepaidBalance,
+                    lastTopUpAmount = amount,
+                    showTopUpSuccess = true
+                )
+                
+                // Auto-dismiss success message after delay
+                delay(3000)
+                _state.value = _state.value.copy(showTopUpSuccess = false)
+                
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    error = e.message ?: "Failed to top up prepaid balance"
+                )
+            }
+        }
+    }
+    
+    /**
+     * Dismiss top-up success message
+     */
+    fun dismissTopUpSuccess() {
+        _state.value = _state.value.copy(showTopUpSuccess = false)
     }
     
     private fun getNextDueDate(): String {
         val calendar = java.util.Calendar.getInstance()
-        calendar.add(java.util.Calendar.DAY_OF_MONTH, 15)
-        val format = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
-        return format.format(calendar.time)
-    }
-    
-    fun refresh() {
-        loadBillingData()
+        calendar.add(java.util.Calendar.DAY_OF_MONTH, 15) // Due in 15 days
+        return java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
+            .format(calendar.time)
     }
     
     fun dismissPaymentResult() {
@@ -243,5 +349,19 @@ class BillingViewModel(
     
     fun dismissError() {
         _state.value = _state.value.copy(error = null)
+    }
+    
+    /**
+     * Get estimated days remaining based on current usage and prepaid balance
+     */
+    fun getEstimatedDaysRemaining(): Int {
+        val dailyUsage = _state.value.currentUsage / 30.0 // Approximate daily usage
+        val dailyCost = dailyUsage * electricityRate
+        
+        return if (dailyCost > 0) {
+            (_state.value.prepaidBalance / dailyCost).toInt()
+        } else {
+            0
+        }
     }
 }

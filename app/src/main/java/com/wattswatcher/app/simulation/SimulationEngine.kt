@@ -1,6 +1,7 @@
 package com.wattswatcher.app.simulation
 
 import com.wattswatcher.app.data.model.Device
+import com.wattswatcher.app.data.model.DevicePriority
 import com.wattswatcher.app.data.api.LiveData
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -33,16 +34,30 @@ class SimulationEngine {
     private val _anomalies = MutableStateFlow<List<String>>(emptyList())
     val anomalies: StateFlow<List<String>> = _anomalies.asStateFlow()
     
+    // New simulation features
+    private val _detectedAppliance = MutableStateFlow<DetectedAppliance?>(null)
+    val detectedAppliance: StateFlow<DetectedAppliance?> = _detectedAppliance.asStateFlow()
+    
+    private val _gridStatus = MutableStateFlow(GridStatus.STABLE)
+    val gridStatus: StateFlow<GridStatus> = _gridStatus.asStateFlow()
+    
+    private val _gsmMessages = MutableStateFlow<List<GsmMessage>>(emptyList())
+    val gsmMessages: StateFlow<List<GsmMessage>> = _gsmMessages.asStateFlow()
+    
     // Simulation parameters
     private var baseLoad = 200.0 // Base household load in watts
     private var simulationSpeed = 10.0 // 10x speed for demo - bills update faster
     private var monthlyBudget = 1500.0 // User's monthly budget
     private var currentMonthUsage = 0.0 // kWh consumed this month
     private var electricityRate = 4.5 // Rate per kWh
+    private var prepaidBalance = 450.0 // Prepaid balance in rupees
+    private var isPrepaidMode = false // Billing mode
     
     // Anomaly detection state
     private var highUsageStartTime = 0L
     private var lastAnomalyCheck = 0L
+    private var lastApplianceDetection = 0L
+    private var lastGsmMessageTime = 0L
     
     init {
         startSimulation()
@@ -71,6 +86,8 @@ class SimulationEngine {
                 updateLiveData()
                 checkForAnomalies()
                 updateDeviceUsage()
+                simulateApplianceDetection()
+                simulateGsmCommunication()
                 delay(2000 * (1.0 / simulationSpeed).toLong())
             }
         }
@@ -257,6 +274,59 @@ class SimulationEngine {
     }
     
     /**
+     * Get billing information including prepaid balance and mode
+     */
+    fun getBillingInfo(): BillingInfo {
+        return BillingInfo(
+            currentBill = getCurrentBillEstimate(),
+            monthlyUsage = currentMonthUsage,
+            prepaidBalance = prepaidBalance,
+            isPrepaidMode = isPrepaidMode,
+            dueDate = getNextDueDate()
+        )
+    }
+    
+    /**
+     * Set billing mode (prepaid or postpaid)
+     */
+    fun setBillingMode(isPrepaid: Boolean) {
+        isPrepaidMode = isPrepaid
+        
+        // Simulate GSM message for billing mode change
+        val message = if (isPrepaid) {
+            GsmMessage(
+                sender = "UTILITY",
+                command = "CMD:BILLING:PREPAID",
+                description = "Your account has been switched to PREPAID mode. Current balance: ₹${String.format("%.2f", prepaidBalance)}",
+                timestamp = System.currentTimeMillis(),
+                isIncoming = true
+            )
+        } else {
+            GsmMessage(
+                sender = "UTILITY",
+                command = "CMD:BILLING:POSTPAID",
+                description = "Your account has been switched to POSTPAID mode. Bill due on ${getNextDueDate()}",
+                timestamp = System.currentTimeMillis(),
+                isIncoming = true
+            )
+        }
+        
+        val currentMessages = _gsmMessages.value.toMutableList()
+        currentMessages.add(message)
+        _gsmMessages.value = currentMessages.takeLast(10)
+    }
+    
+    /**
+     * Get next due date for postpaid billing
+     */
+    private fun getNextDueDate(): String {
+        val calendar = java.util.Calendar.getInstance()
+        calendar.add(java.util.Calendar.DAY_OF_MONTH, 15) // Due in 15 days
+        return java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
+            .format(calendar.time)
+    }
+    
+    /**
      * Get monthly usage in kWh
      */
     fun getMonthlyUsage(): Double {
@@ -288,6 +358,272 @@ class SimulationEngine {
     }
     
     /**
+     * Simulate appliance detection (NILM-lite)
+     */
+    private fun simulateApplianceDetection() {
+        val currentTime = System.currentTimeMillis()
+        
+        // Simulate detection every 20-30 seconds
+        if (currentTime - lastApplianceDetection > Random.nextLong(20000, 30000)) {
+            lastApplianceDetection = currentTime
+            
+            // 30% chance of detecting a new appliance
+            if (Random.nextDouble() < 0.3) {
+                val powerDelta = Random.nextDouble(0.8, 2.5) * 1000 // 800W to 2500W
+                val possibleAppliances = listOf(
+                    "AC" to 1500.0,
+                    "Water Heater" to 2000.0,
+                    "Iron" to 1000.0,
+                    "Microwave" to 1200.0,
+                    "Washing Machine" to 500.0
+                )
+                
+                // Find closest match based on power signature
+                val (applianceName, _) = possibleAppliances.minByOrNull { 
+                    Math.abs(it.second - powerDelta) 
+                } ?: ("Unknown Appliance" to powerDelta)
+                
+                _detectedAppliance.value = DetectedAppliance(
+                    name = applianceName,
+                    powerDelta = powerDelta,
+                    timestamp = currentTime,
+                    confidence = Random.nextDouble(0.7, 0.95)
+                )
+            } else {
+                // Clear previous detection
+                _detectedAppliance.value = null
+            }
+        }
+    }
+    
+    /**
+     * Simulate GSM communication with utility
+     */
+    private fun simulateGsmCommunication() {
+        val currentTime = System.currentTimeMillis()
+        
+        // Simulate GSM messages every 45-60 seconds
+        if (currentTime - lastGsmMessageTime > Random.nextLong(45000, 60000)) {
+            lastGsmMessageTime = currentTime
+            
+            // 20% chance of receiving a message
+            if (Random.nextDouble() < 0.2) {
+                val messages = _gsmMessages.value.toMutableList()
+                val messageTypes = listOf(
+                    "CMD:LOAD_SHED:PREPARE" to "Preparing for load shedding in 5 minutes",
+                    "CMD:LOAD_SHED:START" to "Starting load shedding protocol",
+                    "CMD:LOAD_SHED:END" to "Ending load shedding, restoring power",
+                    "CMD:TARIFF:UPDATE" to "Tariff updated to peak hours (₹5.2/kWh)",
+                    "CMD:TARIFF:NORMAL" to "Tariff returned to normal (₹4.5/kWh)",
+                    "CMD:BALANCE:LOW" to "Prepaid balance low, please recharge"
+                )
+                
+                val (command, description) = messageTypes.random()
+                
+                val newMessage = GsmMessage(
+                    sender = "UTILITY",
+                    command = command,
+                    description = description,
+                    timestamp = currentTime,
+                    isIncoming = true
+                )
+                
+                messages.add(newMessage)
+                
+                // Process command
+                when {
+                    command.contains("LOAD_SHED:START") -> {
+                        _gridStatus.value = GridStatus.LOAD_SHEDDING
+                        handleLoadShedding()
+                    }
+                    command.contains("LOAD_SHED:END") -> {
+                        _gridStatus.value = GridStatus.STABLE
+                    }
+                }
+                
+                // Auto-respond after a short delay
+                scope.launch {
+                    delay(2000)
+                    val response = GsmMessage(
+                        sender = "DEVICE",
+                        command = "ACK:${command}",
+                        description = "Acknowledged: ${description}",
+                        timestamp = System.currentTimeMillis(),
+                        isIncoming = false
+                    )
+                    val updatedMessages = _gsmMessages.value.toMutableList()
+                    updatedMessages.add(response)
+                    _gsmMessages.value = updatedMessages
+                }
+                
+                // Keep only last 10 messages
+                _gsmMessages.value = messages.takeLast(10)
+            }
+        }
+    }
+    
+    /**
+     * Handle load shedding based on device priorities
+     */
+    private fun handleLoadShedding() {
+        val currentDevices = _devices.value
+        val updatedDevices = currentDevices.map { device ->
+            // Turn off non-essential devices
+            if (device.priority == DevicePriority.LOW && device.isOn) {
+                device.copy(isOn = false)
+            } else {
+                device
+            }
+        }
+        _devices.value = updatedDevices
+        
+        // Add anomaly alert
+        val anomalies = _anomalies.value.toMutableList()
+        anomalies.add("Load shedding activated. Non-essential devices turned off.")
+        _anomalies.value = anomalies.takeLast(5)
+    }
+    
+    /**
+     * Manually trigger load shedding (for demo purposes)
+     */
+    fun triggerLoadShedding() {
+        _gridStatus.value = GridStatus.LOAD_SHEDDING
+        handleLoadShedding()
+        
+        // Simulate GSM message
+        val messages = _gsmMessages.value.toMutableList()
+        val incomingMessage = GsmMessage(
+            sender = "UTILITY",
+            command = "CMD:LOAD_SHED:START",
+            description = "Starting load shedding protocol",
+            timestamp = System.currentTimeMillis(),
+            isIncoming = true
+        )
+        messages.add(incomingMessage)
+        _gsmMessages.value = messages.takeLast(10)
+    }
+    
+    /**
+     * End load shedding (for demo purposes)
+     */
+    fun endLoadShedding() {
+        _gridStatus.value = GridStatus.STABLE
+        
+        // Simulate GSM message
+        val messages = _gsmMessages.value.toMutableList()
+        val incomingMessage = GsmMessage(
+            sender = "UTILITY",
+            command = "CMD:LOAD_SHED:END",
+            description = "Ending load shedding, restoring power",
+            timestamp = System.currentTimeMillis(),
+            isIncoming = true
+        )
+        messages.add(incomingMessage)
+        _gsmMessages.value = messages.takeLast(10)
+    }
+    
+    /**
+     * Label a detected appliance and add it to devices
+     */
+    fun labelDetectedAppliance(name: String, type: String, room: String): Device? {
+        val detection = _detectedAppliance.value ?: return null
+        
+        val newDevice = Device(
+            id = "${type.lowercase()}_${room.lowercase().replace(" ", "_")}_${System.currentTimeMillis()}",
+            name = name,
+            type = type,
+            wattage = detection.powerDelta,
+            isOn = true,
+            room = room,
+            icon = getIconForDeviceType(type),
+            priority = DevicePriority.MEDIUM
+        )
+        
+        // Add to devices
+        val updatedDevices = _devices.value.toMutableList()
+        updatedDevices.add(newDevice)
+        _devices.value = updatedDevices
+        
+        // Clear detection
+        _detectedAppliance.value = null
+        
+        return newDevice
+    }
+    
+    /**
+     * Update device priority
+     */
+    fun updateDevicePriority(deviceId: String, priority: DevicePriority) {
+        val updatedDevices = _devices.value.map { device ->
+            if (device.id == deviceId) {
+                device.copy(priority = priority)
+            } else {
+                device
+            }
+        }
+        _devices.value = updatedDevices
+    }
+    
+    /**
+     * Get icon for device type
+     */
+    private fun getIconForDeviceType(type: String): String {
+        return when {
+            type.contains("AC", ignoreCase = true) -> "❄️"
+            type.contains("Heat", ignoreCase = true) -> "🔥"
+            type.contains("Water", ignoreCase = true) -> "💧"
+            type.contains("Fridge", ignoreCase = true) -> "🧊"
+            type.contains("TV", ignoreCase = true) -> "📺"
+            type.contains("Light", ignoreCase = true) -> "💡"
+            type.contains("Fan", ignoreCase = true) -> "🌀"
+            type.contains("Iron", ignoreCase = true) -> "👔"
+            type.contains("Wash", ignoreCase = true) -> "👕"
+            else -> "⚡"
+        }
+    }
+    
+    // Removed duplicate getBillingInfo method
+    
+    /**
+     * Add prepaid balance
+     */
+    fun addPrepaidBalance(amount: Double) {
+        prepaidBalance += amount
+        
+        // Simulate GSM confirmation message
+        val message = GsmMessage(
+            sender = "UTILITY",
+            command = "CMD:BILLING:RECHARGE",
+            description = "Your account has been recharged with ₹${String.format("%.2f", amount)}. New balance: ₹${String.format("%.2f", prepaidBalance)}",
+            timestamp = System.currentTimeMillis(),
+            isIncoming = true
+        )
+        
+        val currentMessages = _gsmMessages.value.toMutableList()
+        currentMessages.add(message)
+        _gsmMessages.value = currentMessages.takeLast(10)
+    }
+    
+    /**
+     * Toggle prepaid/postpaid mode
+     */
+    fun togglePrepaidMode(isPrepaid: Boolean) {
+        isPrepaidMode = isPrepaid
+    }
+    
+    /**
+     * Get grid status description
+     */
+    fun getGridStatusDescription(): String {
+        return when (_gridStatus.value) {
+            GridStatus.STABLE -> "Grid Stable"
+            GridStatus.LOAD_SHEDDING -> "Load Shedding Active"
+            GridStatus.PEAK_HOURS -> "Peak Hours - High Tariff"
+            GridStatus.MAINTENANCE -> "Grid Maintenance"
+        }
+    }
+    
+    /**
      * Get default devices for initial setup
      */
     private fun getDefaultDevices(): List<Device> {
@@ -298,6 +634,7 @@ class SimulationEngine {
                 type = "Air Conditioner",
                 wattage = 1500.0,
                 isOn = false,
+                priority = DevicePriority.LOW,
                 room = "Living Room",
                 icon = "❄️"
             ),
@@ -308,7 +645,8 @@ class SimulationEngine {
                 wattage = 200.0,
                 isOn = true,
                 room = "Kitchen",
-                icon = "🧊"
+                icon = "🧊",
+                priority = DevicePriority.HIGH
             ),
             Device(
                 id = "tv_living_room",
@@ -317,7 +655,8 @@ class SimulationEngine {
                 wattage = 150.0,
                 isOn = false,
                 room = "Living Room",
-                icon = "📺"
+                icon = "📺",
+                priority = DevicePriority.MEDIUM
             ),
             Device(
                 id = "water_heater",
@@ -326,9 +665,39 @@ class SimulationEngine {
                 wattage = 2000.0,
                 isOn = false,
                 room = "Bathroom",
-                icon = "🚿"
+                icon = "🚿",
+                priority = DevicePriority.LOW
             )
         )
+    }
+    
+    /**
+     * Reset monthly bill after successful payment
+     */
+    fun resetMonthlyBill() {
+        currentMonthUsage = 0.0
+        
+        // Reset device monthly usage as well
+        val resetDevices = _devices.value.map { device ->
+            device.copy(monthlyUsage = 0.0)
+        }
+        _devices.value = resetDevices
+        
+        // Simulate GSM message for payment confirmation
+        val message = GsmMessage(
+            sender = "UTILITY",
+            command = "CMD:PAYMENT:SUCCESS",
+            description = "Payment successful! Your bill has been reset. New billing cycle started.",
+            timestamp = System.currentTimeMillis(),
+            isIncoming = true
+        )
+        
+        val currentMessages = _gsmMessages.value.toMutableList()
+        currentMessages.add(0, message) // Add to beginning
+        if (currentMessages.size > 10) {
+            currentMessages.removeAt(currentMessages.size - 1) // Keep only last 10
+        }
+        _gsmMessages.value = currentMessages
     }
     
     /**
@@ -337,4 +706,46 @@ class SimulationEngine {
     fun cleanup() {
         scope.cancel()
     }
+}
+
+/**
+ * Data class for detected appliance
+ */
+data class DetectedAppliance(
+    val name: String,
+    val powerDelta: Double,
+    val timestamp: Long,
+    val confidence: Double
+)
+
+/**
+ * Data class for GSM message
+ */
+data class GsmMessage(
+    val sender: String,
+    val command: String,
+    val description: String,
+    val timestamp: Long,
+    val isIncoming: Boolean
+)
+
+/**
+ * Data class for billing information
+ */
+data class BillingInfo(
+    val currentBill: Double,
+    val monthlyUsage: Double,
+    val prepaidBalance: Double,
+    val isPrepaidMode: Boolean,
+    val dueDate: String
+)
+
+/**
+ * Enum for grid status
+ */
+enum class GridStatus {
+    STABLE,
+    LOAD_SHEDDING,
+    PEAK_HOURS,
+    MAINTENANCE
 }

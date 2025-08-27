@@ -2,14 +2,14 @@ package com.wattswatcher.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Light Theme Colors - Inspired by modern energy apps
-val LightBackground = Color(0xFFF9FAFB)        // Soft Pearl White
-val LightCardBackground = Color(0xFFE0E0E0)     // Light Gray
-val LightPrimaryAccent = Color(0xFF2979FF)      // Electric Blue
-val LightSecondaryAccent = Color(0xFF00C853)    // Emerald Green
-val LightWarningColor = Color(0xFFFF6F00)       // Bright Amber
-val LightMainText = Color(0xFF212121)           // Rich Charcoal
-val LightSubText = Color(0xFF757575)            // Muted Gray
+// Light Theme Colors - Improved contrast for readability
+val LightBackground = Color(0xFFFFFFFF)        // Pure White
+val LightCardBackground = Color(0xFFF5F5F5)     // Very Light Gray
+val LightPrimaryAccent = Color(0xFF1976D2)      // Darker Electric Blue
+val LightSecondaryAccent = Color(0xFF388E3C)    // Darker Emerald Green
+val LightWarningColor = Color(0xFFE65100)       // Darker Amber
+val LightMainText = Color(0xFF000000)           // Pure Black
+val LightSubText = Color(0xFF424242)            // Dark Gray
 
 // Dark Theme Colors - Premium dark energy dashboard
 val DarkBackground = Color(0xFF0B0F1A)          // Gunmetal Dark

@@ -73,11 +73,12 @@ fun WattsWatcherNavigation() {
                         selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                         onClick = {
                             navController.navigate(screen.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+                                // Clear back stack to prevent navigation issues
+                                popUpTo(Screen.Dashboard.route) {
+                                    inclusive = screen.route == Screen.Dashboard.route
                                 }
                                 launchSingleTop = true
-                                restoreState = true
+                                restoreState = false // Disable to prevent stuck navigation
                             }
                         },
                         colors = NavigationBarItemDefaults.colors(
@@ -95,141 +96,79 @@ fun WattsWatcherNavigation() {
         NavHost(
             navController = navController,
             startDestination = Screen.Dashboard.route,
-            modifier = Modifier.padding(innerPadding),
-            enterTransition = {
-                slideInHorizontally(
-                    initialOffsetX = { it },
-                    animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
-                ) + fadeIn(
-                    animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
-                )
-            },
-            exitTransition = {
-                slideOutHorizontally(
-                    targetOffsetX = { -it / 3 },
-                    animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
-                ) + fadeOut(
-                    animationSpec = tween(WattsWatcherAnimations.FAST_ANIMATION)
-                )
-            },
-            popEnterTransition = {
-                slideInHorizontally(
-                    initialOffsetX = { -it / 3 },
-                    animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
-                ) + fadeIn(
-                    animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
-                )
-            },
-            popExitTransition = {
-                slideOutHorizontally(
-                    targetOffsetX = { it },
-                    animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
-                ) + fadeOut(
-                    animationSpec = tween(WattsWatcherAnimations.FAST_ANIMATION)
-                )
-            }
+            modifier = Modifier.padding(innerPadding)
         ) {
-            composable(
-                Screen.Dashboard.route,
-                enterTransition = {
-                    slideInHorizontally(
-                        initialOffsetX = { 0 },
-                        animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
-                    ) + fadeIn(
-                        animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
-                    )
-                }
-            ) {
+            composable(Screen.Dashboard.route) {
                 DashboardScreen(
                     onNavigateToBilling = {
-                        navController.navigate(Screen.Billing.route)
+                        navController.navigate(Screen.Billing.route) {
+                            launchSingleTop = true
+                        }
                     },
                     onNavigateToDevices = {
-                        navController.navigate(Screen.Devices.route)
+                        navController.navigate(Screen.Devices.route) {
+                            launchSingleTop = true
+                        }
                     },
                     onNavigateToAnalytics = {
-                        navController.navigate(Screen.Analytics.route)
+                        navController.navigate(Screen.Analytics.route) {
+                            launchSingleTop = true
+                        }
                     }
                 )
             }
             
-            composable(
-                Screen.Devices.route,
-                enterTransition = {
-                    slideInVertically(
-                        initialOffsetY = { it },
-                        animationSpec = tween(
-                            durationMillis = WattsWatcherAnimations.NORMAL_ANIMATION,
-                            easing = WattsWatcherAnimations.FastOutSlowInEasing
-                        )
-                    ) + fadeIn(
-                        animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
-                    )
-                }
-            ) {
+            composable(Screen.Devices.route) {
                 DeviceControlScreen(
                     onNavigateToDashboard = {
-                        navController.navigate(Screen.Dashboard.route)
+                        navController.navigate(Screen.Dashboard.route) {
+                            launchSingleTop = true
+                        }
                     },
                     onNavigateToAnalytics = {
-                        navController.navigate(Screen.Analytics.route)
+                        navController.navigate(Screen.Analytics.route) {
+                            launchSingleTop = true
+                        }
                     }
                 )
             }
             
-            composable(
-                Screen.Billing.route,
-                enterTransition = {
-                    slideInVertically(
-                        initialOffsetY = { it / 2 },
-                        animationSpec = tween(
-                            durationMillis = WattsWatcherAnimations.NORMAL_ANIMATION,
-                            easing = WattsWatcherAnimations.FastOutSlowInEasing
-                        )
-                    ) + fadeIn(
-                        animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
-                    ) + scaleIn(
-                        initialScale = 0.9f,
-                        animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
-                    )
-                }
-            ) {
+            composable(Screen.Billing.route) {
                 BillingScreen(
                     onNavigateToDashboard = {
-                        navController.navigate(Screen.Dashboard.route)
+                        navController.navigate(Screen.Dashboard.route) {
+                            launchSingleTop = true
+                        }
                     },
                     onNavigateToDevices = {
-                        navController.navigate(Screen.Devices.route)
+                        navController.navigate(Screen.Devices.route) {
+                            launchSingleTop = true
+                        }
                     },
                     onNavigateToAnalytics = {
-                        navController.navigate(Screen.Analytics.route)
+                        navController.navigate(Screen.Analytics.route) {
+                            launchSingleTop = true
+                        }
                     }
                 )
             }
             
-            composable(
-                Screen.Analytics.route,
-                enterTransition = {
-                    slideInHorizontally(
-                        initialOffsetX = { it },
-                        animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
-                    ) + fadeIn(
-                        animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
-                    ) + scaleIn(
-                        initialScale = 0.95f,
-                        animationSpec = tween(WattsWatcherAnimations.NORMAL_ANIMATION)
-                    )
-                }
-            ) {
+            composable(Screen.Analytics.route) {
                 AnalyticsScreen(
                     onNavigateToDashboard = {
-                        navController.navigate(Screen.Dashboard.route)
+                        navController.navigate(Screen.Dashboard.route) {
+                            launchSingleTop = true
+                        }
                     },
                     onNavigateToDevices = {
-                        navController.navigate(Screen.Devices.route)
+                        navController.navigate(Screen.Devices.route) {
+                            launchSingleTop = true
+                        }
                     },
                     onNavigateToBilling = {
-                        navController.navigate(Screen.Billing.route)
+                        navController.navigate(Screen.Billing.route) {
+                            launchSingleTop = true
+                        }
                     }
                 )
             }

@@ -171,11 +171,18 @@ object MockDataProvider {
     }
     
     /**
-     * Process payment simulation
+     * Process payment simulation with bill reset
      */
     fun processPayment(amount: Double, method: String): Boolean {
         // Simulate payment processing with 95% success rate
-        return Random.nextDouble() < 0.95
+        val success = Random.nextDouble() < 0.95
+        
+        if (success) {
+            // Reset the monthly usage and bill after successful payment
+            simulationEngine.resetMonthlyBill()
+        }
+        
+        return success
     }
     
     /**

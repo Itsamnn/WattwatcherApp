@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,9 +22,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wattswatcher.app.WattsWatcherApplication
 import com.wattswatcher.app.data.model.Device
+import com.wattswatcher.app.data.model.DevicePriority
+import com.wattswatcher.app.simulation.DetectedAppliance
+import com.wattswatcher.app.simulation.GridStatus
 import com.wattswatcher.app.ui.animations.WattsWatcherAnimations
 import com.wattswatcher.app.ui.theme.WattsWatcherColors
 import kotlin.math.roundToInt
@@ -59,11 +64,25 @@ fun DashboardScreen(
             }
         }
         
-        // Live Power Gauge - Hero Section
+        // Grid Status Card
         item {
             WattsWatcherAnimations.StaggeredAnimation(
                 visible = true,
                 index = 1
+            ) {
+                GridStatusCard(
+                    gridStatus = state.gridStatus,
+                    onTriggerLoadShedding = { viewModel.triggerLoadShedding() },
+                    onEndLoadShedding = { viewModel.endLoadShedding() }
+                )
+            }
+        }
+        
+        // Live Power Gauge - Hero Section
+        item {
+            WattsWatcherAnimations.StaggeredAnimation(
+                visible = true,
+                index = 2
             ) {
                 LivePowerGaugeCard(
                     currentUsage = state.liveData?.currentUsage ?: 0.0,
@@ -77,7 +96,7 @@ fun DashboardScreen(
         item {
             WattsWatcherAnimations.StaggeredAnimation(
                 visible = true,
-                index = 2
+                index = 3
             ) {
                 QuickStatsRow(
                     monthlyUsage = state.monthlyUsage,
@@ -89,12 +108,29 @@ fun DashboardScreen(
             }
         }
         
+        // Detected Appliance Card
+        state.detectedAppliance?.let { appliance ->
+            item {
+                WattsWatcherAnimations.StaggeredAnimation(
+                    visible = true,
+                    index = 4
+                ) {
+                    DetectedApplianceCard(
+                        detectedAppliance = appliance,
+                        onLabel = { name, type, room -> 
+                            viewModel.labelDetectedAppliance(name, type, room)
+                        }
+                    )
+                }
+            }
+        }
+        
         // Anomaly Alerts
         if (state.anomalies.isNotEmpty()) {
             item {
                 WattsWatcherAnimations.StaggeredAnimation(
                     visible = true,
-                    index = 3
+                    index = 5
                 ) {
                     AnomalyAlertCard(
                         anomalies = state.anomalies,
@@ -109,7 +145,7 @@ fun DashboardScreen(
             item {
                 WattsWatcherAnimations.StaggeredAnimation(
                     visible = true,
-                    index = 4
+                    index = 6
                 ) {
                     ActiveDevicesSection(
                         devices = state.activeDevices,
@@ -123,7 +159,7 @@ fun DashboardScreen(
         item {
             WattsWatcherAnimations.StaggeredAnimation(
                 visible = true,
-                index = 5
+                index = 7
             ) {
                 EnergyInsightsCard(
                     monthlyUsage = state.monthlyUsage,
@@ -149,6 +185,311 @@ private fun WelcomeHeader() {
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
             modifier = Modifier.padding(top = 4.dp)
         )
+    }
+}
+
+@Composable
+private fun GridStatusCard(
+    gridStatus: GridStatus,
+    onTriggerLoadShedding: () -> Unit,
+    onEndLoadShedding: () -> Unit
+) {
+    val statusColor = when(gridStatus) {
+        GridStatus.STABLE -> WattsWatcherColors.energyGreen
+        GridStatus.LOAD_SHEDDING -> Color.Red
+        GridStatus.PEAK_HOURS -> Color(0xFFFFA500) // Orange
+        GridStatus.MAINTENANCE -> Color.Gray
+    }
+    
+    val statusText = when(gridStatus) {
+        GridStatus.STABLE -> "Grid Stable"
+        GridStatus.LOAD_SHEDDING -> "Load Shedding Active"
+        GridStatus.PEAK_HOURS -> "Peak Hours - High Tariff"
+        GridStatus.MAINTENANCE -> "Grid Maintenance"
+    }
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(100.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = WattsWatcherColors.cardBackground
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = "Grid Status",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .background(statusColor, CircleShape)
+                    )
+                    Text(
+                        text = statusText,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = statusColor,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+            }
+            
+            if (gridStatus == GridStatus.STABLE) {
+                Button(
+                    onClick = onTriggerLoadShedding,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Red.copy(alpha = 0.8f)
+                    )
+                ) {
+                    Text("Trigger Load Shedding")
+                }
+            } else if (gridStatus == GridStatus.LOAD_SHEDDING) {
+                Button(
+                    onClick = onEndLoadShedding,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = WattsWatcherColors.energyGreen
+                    )
+                ) {
+                    Text("End Load Shedding")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetectedApplianceCard(
+    detectedAppliance: DetectedAppliance,
+    onLabel: (String, String, String) -> Unit
+) {
+    var showLabelDialog by remember { mutableStateOf(false) }
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = WattsWatcherColors.cardBackground
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.ElectricBolt,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        text = "New Device Detected",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+                
+                Text(
+                    text = "${(detectedAppliance.confidence * 100).roundToInt()}% Match",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Text(
+                text = "Detected: ${detectedAppliance.name}",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            Text(
+                text = "Power: ${(detectedAppliance.powerDelta / 1000).toFloat().toString().take(4)} kW",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Button(
+                onClick = { showLabelDialog = true },
+                modifier = Modifier.align(Alignment.End),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Text("Label Device")
+            }
+        }
+    }
+    
+    if (showLabelDialog) {
+        LabelDeviceDialog(
+            suggestedName = detectedAppliance.name,
+            onDismiss = { showLabelDialog = false },
+            onConfirm = { name, type, room ->
+                onLabel(name, type, room)
+                showLabelDialog = false
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LabelDeviceDialog(
+    suggestedName: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String, String, String) -> Unit
+) {
+    var deviceName by remember { mutableStateOf(suggestedName) }
+    var deviceType by remember { mutableStateOf(suggestedName) }
+    var deviceRoom by remember { mutableStateOf("Living Room") }
+    
+    val deviceTypes = listOf("AC", "Water Heater", "Iron", "Refrigerator", "TV", "Washing Machine", "Microwave")
+    val roomOptions = listOf("Living Room", "Bedroom", "Kitchen", "Bathroom", "Office", "Balcony")
+    
+    var expandedType by remember { mutableStateOf(false) }
+    var expandedRoom by remember { mutableStateOf(false) }
+    
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(
+                    text = "Label New Device",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                
+                Spacer(modifier = Modifier.height(20.dp))
+                
+                OutlinedTextField(
+                    value = deviceName,
+                    onValueChange = { deviceName = it },
+                    label = { Text("Device Name") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Device Type Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = expandedType,
+                    onExpandedChange = { expandedType = it },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = deviceType,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Device Type") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedType) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    
+                    ExposedDropdownMenu(
+                        expanded = expandedType,
+                        onDismissRequest = { expandedType = false }
+                    ) {
+                        deviceTypes.forEach { type ->
+                            DropdownMenuItem(
+                                text = { Text(type) },
+                                onClick = {
+                                    deviceType = type
+                                    expandedType = false
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Room Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = expandedRoom,
+                    onExpandedChange = { expandedRoom = it },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = deviceRoom,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Room") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedRoom) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    
+                    ExposedDropdownMenu(
+                        expanded = expandedRoom,
+                        onDismissRequest = { expandedRoom = false }
+                    ) {
+                        roomOptions.forEach { room ->
+                            DropdownMenuItem(
+                                text = { Text(room) },
+                                onClick = {
+                                    deviceRoom = room
+                                    expandedRoom = false
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancel")
+                    }
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    Button(onClick = { onConfirm(deviceName, deviceType, deviceRoom) }) {
+                        Text("Confirm")
+                    }
+                }
+            }
+        }
     }
 }
 

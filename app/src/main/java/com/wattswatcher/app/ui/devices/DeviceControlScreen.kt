@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wattswatcher.app.WattsWatcherApplication
 import com.wattswatcher.app.data.model.Device
+import com.wattswatcher.app.data.model.DevicePriority
 import com.wattswatcher.app.data.model.DeviceType
 import com.wattswatcher.app.data.model.createDevice
 import com.wattswatcher.app.ui.animations.WattsWatcherAnimations
@@ -502,19 +503,27 @@ private fun EmptyDevicesCard(
                 modifier = Modifier.size(48.dp),
                 tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
             )
+            
             Spacer(modifier = Modifier.height(16.dp))
+            
             Text(
                 text = "No devices added yet",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
             Text(
                 text = "Add your first smart device to get started",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                modifier = Modifier.padding(horizontal = 32.dp)
             )
-            Spacer(modifier = Modifier.height(20.dp))
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
             Button(
                 onClick = onAddDevice,
                 colors = ButtonDefaults.buttonColors(
@@ -527,6 +536,187 @@ private fun EmptyDevicesCard(
             }
         }
     }
+}
+
+@Composable
+fun PriorityBadge(priority: DevicePriority) {
+    val (color, text) = when (priority) {
+        DevicePriority.LOW -> Pair(Color.Red, "Non-Essential")
+        DevicePriority.MEDIUM -> Pair(Color(0xFFFFA000), "High")
+        DevicePriority.HIGH -> Pair(Color.Green, "Critical")
+    }
+    
+    Surface(
+        color = color.copy(alpha = 0.15f),
+        shape = MaterialTheme.shapes.small
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .background(color, CircleShape)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                color = color
+            )
+        }
+    }
+}
+
+@Composable
+fun PrioritySelectionDialog(
+    device: Device,
+    onDismiss: () -> Unit,
+    onPrioritySelected: (DevicePriority) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Set Priority for ${device.name}")
+        },
+        text = {
+            Column {
+                Text(
+                    "Select the priority level for this device. Higher priority devices will remain powered during load shedding events.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                PriorityOption(
+                    priority = DevicePriority.HIGH,
+                    isSelected = device.priority == DevicePriority.HIGH,
+                    onClick = { onPrioritySelected(DevicePriority.HIGH) }
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                PriorityOption(
+                    priority = DevicePriority.MEDIUM,
+                    isSelected = device.priority == DevicePriority.MEDIUM,
+                    onClick = { onPrioritySelected(DevicePriority.MEDIUM) }
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                PriorityOption(
+                    priority = DevicePriority.LOW,
+                    isSelected = device.priority == DevicePriority.LOW,
+                    onClick = { onPrioritySelected(DevicePriority.LOW) }
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+        dismissButton = {}
+    )
+}
+
+@Composable
+fun PriorityOption(
+    priority: DevicePriority,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val (color, text, description) = when (priority) {
+        DevicePriority.LOW -> Triple(
+            Color.Red, 
+            "Non-Essential", 
+            "First to be turned off during load shedding (e.g., AC, water heater)"
+        )
+        DevicePriority.MEDIUM -> Triple(
+            Color(0xFFFFA000), 
+            "High", 
+            "Turned off only during critical events (e.g., TV, fan)"
+        )
+        DevicePriority.HIGH -> Triple(
+            Color.Green, 
+            "Critical", 
+            "Always kept on if possible (e.g., fridge, lights)"
+        )
+    }
+    
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        color = if (isSelected) color.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(
+                selected = isSelected,
+                onClick = onClick,
+                colors = RadioButtonDefaults.colors(selectedColor = color)
+            )
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            Column {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = color,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun LoadSheddingDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+    isLoadSheddingActive: Boolean
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(if (isLoadSheddingActive) "End Load Shedding" else "Trigger Load Shedding")
+        },
+        text = {
+            if (isLoadSheddingActive) {
+                Text("This will end the simulated load shedding event and restore power to all devices based on their previous state.")
+            } else {
+                Text("This will simulate a grid shortage event. Non-essential devices will be automatically turned off to reduce power consumption. Critical devices will remain powered.")
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isLoadSheddingActive) 
+                        WattsWatcherColors.energyGreen else WattsWatcherColors.energyRed
+                )
+            ) {
+                Text(if (isLoadSheddingActive) "End Load Shedding" else "Start Load Shedding")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable
